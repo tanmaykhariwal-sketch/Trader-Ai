@@ -1,0 +1,198 @@
+import React, { useState, useEffect } from 'react';
+import { RiskCalculatorInput, RiskCalculatorResult, MarketSignal } from '../types';
+import { Calculator, X, ShieldCheck, AlertTriangle, CheckCircle2, DollarSign, IndianRupee } from 'lucide-react';
+
+interface PositionCalculatorModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  capital: number;
+  currency: 'INR' | 'USD';
+  initialSignal?: MarketSignal | null;
+}
+
+export const PositionCalculatorModal: React.FC<PositionCalculatorModalProps> = ({
+  isOpen,
+  onClose,
+  capital,
+  currency,
+  initialSignal
+}) => {
+  const [riskPercent, setRiskPercent] = useState<number>(1.0);
+  const [entryPrice, setEntryPrice] = useState<number>(initialSignal?.currentPrice || 2985);
+  const [stopLossPrice, setStopLossPrice] = useState<number>(2945);
+  const [targetPrice, setTargetPrice] = useState<number>(3065);
+
+  useEffect(() => {
+    if (initialSignal) {
+      setEntryPrice(initialSignal.currentPrice);
+      // parse numeric stop loss if possible
+      const slMatch = initialSignal.stopLoss.match(/[\d,.]+/);
+      if (slMatch) {
+        setStopLossPrice(parseFloat(slMatch[0].replace(/,/g, '')));
+      }
+      // parse numeric target if possible
+      const targetMatch = initialSignal.sellZone.match(/[\d,.]+/);
+      if (targetMatch) {
+        setTargetPrice(parseFloat(targetMatch[0].replace(/,/g, '')));
+      }
+    }
+  }, [initialSignal]);
+
+  if (!isOpen) return null;
+
+  // Calculation Logic
+  const maxRiskAmount = (capital * riskPercent) / 100;
+  const perShareRisk = Math.abs(entryPrice - stopLossPrice) || 1;
+  const positionSizeQty = Math.floor(maxRiskAmount / perShareRisk);
+  const totalPositionValue = positionSizeQty * entryPrice;
+  const potentialProfitPerShare = Math.abs(targetPrice - entryPrice);
+  const potentialProfitAmount = positionSizeQty * potentialProfitPerShare;
+  const riskRewardRatio = Number((potentialProfitPerShare / perShareRisk).toFixed(2));
+  const isAcceptableRR = riskRewardRatio >= 2.0;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-xl p-6 shadow-2xl relative overflow-hidden">
+        
+        {/* Modal Header */}
+        <div className="flex items-center justify-between border-b border-slate-800 pb-4 mb-4">
+          <div className="flex items-center space-x-3">
+            <div className="p-2.5 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-400">
+              <Calculator className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-white tracking-tight">
+                Position Sizing & Risk-Reward Calculator
+              </h3>
+              <p className="text-xs text-slate-400">
+                1% - 2% Capital Preservation Rule for Professional Trader Execution
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Form Inputs */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+          
+          <div>
+            <label className="text-xs font-semibold text-slate-300 block mb-1">
+              Account Capital ({currency}):
+            </label>
+            <div className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-emerald-400 font-bold">
+              {currency === 'INR' ? '₹' : '$'}{capital.toLocaleString()}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-300 block mb-1">
+              Risk Per Trade (% of Capital):
+            </label>
+            <div className="flex items-center space-x-2">
+              <input
+                type="number"
+                step="0.1"
+                min="0.1"
+                max="5.0"
+                value={riskPercent}
+                onChange={(e) => setRiskPercent(parseFloat(e.target.value) || 1)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-emerald-500"
+              />
+              <span className="text-xs font-bold text-slate-400">%</span>
+            </div>
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-300 block mb-1">
+              Entry Price ({currency}):
+            </label>
+            <input
+              type="number"
+              step="0.05"
+              value={entryPrice}
+              onChange={(e) => setEntryPrice(parseFloat(e.target.value) || 0)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-emerald-500"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-semibold text-slate-300 block mb-1">
+              Stop Loss Price ({currency}):
+            </label>
+            <input
+              type="number"
+              step="0.05"
+              value={stopLossPrice}
+              onChange={(e) => setStopLossPrice(parseFloat(e.target.value) || 0)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-rose-300 focus:outline-none focus:border-rose-500"
+            />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="text-xs font-semibold text-slate-300 block mb-1">
+              Target Price / Take Profit ({currency}):
+            </label>
+            <input
+              type="number"
+              step="0.05"
+              value={targetPrice}
+              onChange={(e) => setTargetPrice(parseFloat(e.target.value) || 0)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-cyan-300 focus:outline-none focus:border-cyan-500"
+            />
+          </div>
+
+        </div>
+
+        {/* Calculated Results Panel */}
+        <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 space-y-3">
+          <div className="flex items-center justify-between border-b border-slate-900 pb-2">
+            <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">
+              Execution Output
+            </span>
+            <span className={`px-2 py-0.5 rounded text-[11px] font-bold flex items-center space-x-1 ${
+              isAcceptableRR ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
+            }`}>
+              {isAcceptableRR ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <AlertTriangle className="h-3 w-3 mr-1" />}
+              R:R Ratio = 1 : {riskRewardRatio} ({isAcceptableRR ? 'Valid Setup' : 'Low R:R'})
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-xs">
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+              <span className="text-slate-400 block text-[10px]">Recommended Share Quantity:</span>
+              <span className="font-mono text-base font-black text-emerald-400">{positionSizeQty.toLocaleString()} shares / lots</span>
+            </div>
+
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+              <span className="text-slate-400 block text-[10px]">Max Risk Amount ({riskPercent}%):</span>
+              <span className="font-mono text-base font-black text-rose-400">{currency === 'INR' ? '₹' : '$'}{maxRiskAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+            </div>
+
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+              <span className="text-slate-400 block text-[10px]">Total Position Exposure:</span>
+              <span className="font-mono text-xs font-bold text-slate-200">{currency === 'INR' ? '₹' : '$'}{totalPositionValue.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+            </div>
+
+            <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
+              <span className="text-slate-400 block text-[10px]">Target Potential Profit:</span>
+              <span className="font-mono text-xs font-bold text-cyan-300">+{currency === 'INR' ? '₹' : '$'}{potentialProfitAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Modal Footer */}
+        <div className="mt-5 flex justify-end">
+          <button
+            onClick={onClose}
+            className="px-5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-white text-xs font-bold transition-colors"
+          >
+            Close Calculator
+          </button>
+        </div>
+
+      </div>
+    </div>
+  );
+};
