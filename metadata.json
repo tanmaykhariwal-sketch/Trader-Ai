@@ -1,0 +1,8 @@
+{
+  "name": "Trader AI",
+  "description": "Institutional AI financial advisor with Google Finance live market rates, real-time news sentiment intelligence, automated candlestick pattern recognition, and stock upgrade/downgrade predictive modeling.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
