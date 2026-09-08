@@ -2,7 +2,17 @@ node_modules/
 build/
 dist/
 coverage/
+# Anchored to repo root — an unanchored "data/" also matched src/data/ (real
+# source, e.g. marketData.ts), silently excluding it from every commit.
+/data/
 .DS_Store
 *.log
 .env*
 !.env.example
+
+# Local Claude Code tooling config — machine/session-specific, not project source
+.claude/
+
+# graphify knowledge-graph build output — regenerable, and .graphify_python
+# inside it stores a machine-specific absolute interpreter path
+graphify-out/
