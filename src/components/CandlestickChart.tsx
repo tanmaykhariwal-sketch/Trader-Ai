@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { CandlestickData, StockPrediction } from '../types';
-import { 
+import {
   BarChart2, 
   Layers, 
   Eye, 
   TrendingUp, 
   Maximize2,
   Info,
-  Sparkles,
   Target,
   ShieldAlert,
   Clock
 } from 'lucide-react';
+
+// Matches the multipliers used elsewhere in this app for a fallback
+// target/stop-loss when a signal's own text can't be parsed for a number.
+const FALLBACK_TARGET_MULTIPLIER = 1.035;
+const FALLBACK_STOP_LOSS_MULTIPLIER = 0.98;
 
 interface CandlestickChartProps {
   data: CandlestickData[];
@@ -70,13 +74,16 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
   const predictedAction = prediction?.predictedAction || 'STRONG UPGRADE';
 
   if (!target1 && sellZone) {
-    // Attempt parse from sellZone string e.g. "₹1,320 - ₹1,365"
-    const match = sellZone.match(/\d+[\d,.]*/g);
-    if (match && match.length > 0) {
-      target1 = parseFloat(match[0].replace(/,/g, ''));
-      if (match.length > 1) {
-        target2 = parseFloat(match[1].replace(/,/g, ''));
-      }
+    // sellZone is formatted as "T1: ₹1,320 | T2: ₹1,365" — a bare digit-run
+    // match would also match the "1"/"2" inside the "T1"/"T2" labels
+    // themselves, shifting both values off by one. Extract by label instead.
+    const t1Match = sellZone.match(/T1:\s*₹?([\d,]+(\.\d+)?)/);
+    const t2Match = sellZone.match(/T2:\s*₹?([\d,]+(\.\d+)?)/);
+    if (t1Match) {
+      target1 = parseFloat(t1Match[1].replace(/,/g, ''));
+    }
+    if (t2Match) {
+      target2 = parseFloat(t2Match[1].replace(/,/g, ''));
     }
   }
 
@@ -87,10 +94,16 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
     }
   }
 
-  // Fallback defaults if not set
-  if (!target1) target1 = +(lastClose * 1.038).toFixed(2);
-  if (!target2) target2 = +(lastClose * 1.065).toFixed(2);
-  if (!slPrice) slPrice = +(lastClose * 0.975).toFixed(2);
+  // Fallback defaults if not set. target1/slPrice now use the same
+  // multipliers as computeHoldingMetrics (the app's shared fallback) instead
+  // of this chart's own independently-guessed 1.038/0.975 — otherwise a
+  // holding's target/stop-loss line here could disagree with the number
+  // Portfolio/Stock Studio show for the exact same holding. target2 has no
+  // canonical counterpart elsewhere (this is the only two-tier target
+  // display), so it stays a chart-local extension beyond target1.
+  if (!target1) target1 = +(lastClose * FALLBACK_TARGET_MULTIPLIER).toFixed(2);
+  if (!target2) target2 = +(target1 * 1.025).toFixed(2);
+  if (!slPrice) slPrice = +(lastClose * FALLBACK_STOP_LOSS_MULTIPLIER).toFixed(2);
 
   const targetGainPct = (((target1 - lastClose) / lastClose) * 100).toFixed(2);
 
@@ -163,7 +176,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             <span className="text-xs px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-mono font-bold">
               {timeframe}
             </span>
-            {marketStatus === 'CLOSED' ? (
+            {!isOpenStatus ? (
               <span className="text-[11px] px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 font-mono font-bold">
                 BSE Closed • Frozen Rate
               </span>
@@ -182,7 +195,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
               <>
                 <span>•</span>
                 <span className="text-emerald-400 font-mono font-bold flex items-center gap-1">
-                  <Sparkles className="w-3 h-3" />
                   {predictedAction} ({confidence}% Confidence)
                 </span>
               </>
@@ -201,7 +213,6 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
                 : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-white'
             }`}
           >
-            <Sparkles className={`h-3.5 w-3.5 ${showPrediction ? 'text-cyan-400' : 'text-slate-500'}`} />
             <span>AI Prediction Curve: {showPrediction ? 'ON' : 'OFF'}</span>
           </button>
 
@@ -666,7 +677,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
         <div className="bg-slate-950 p-3 rounded-xl border border-slate-800">
           <div className="flex justify-between items-center text-xs mb-2">
             <span className="font-bold text-cyan-400">Relative Strength Index (RSI - 14)</span>
-            <span className="font-mono text-slate-300">Latest: {lastCandle?.rsi || 58.2}</span>
+            <span className="font-mono text-slate-300">Latest: {lastCandle?.rsi ?? 58.2}</span>
           </div>
           <svg viewBox="0 0 700 120" className="w-full h-28">
             <line x1="20" y1="36" x2="680" y2="36" stroke="#f43f5e" strokeDasharray="3 3" strokeWidth="1" />
@@ -676,7 +687,7 @@ export const CandlestickChart: React.FC<CandlestickChartProps> = ({
             <text x="682" y="87" fill="#10b981" fontSize="9">30 OS</text>
 
             <path
-              d={`M ${data.map((d, i) => `${40 + i * barSpacing},${120 - ((d.rsi || 50) / 100) * 120}`).join(' L ')}`}
+              d={`M ${data.map((d, i) => `${40 + i * barSpacing},${120 - ((d.rsi ?? 50) / 100) * 120}`).join(' L ')}`}
               fill="none"
               stroke="#22d3ee"
               strokeWidth="2"
