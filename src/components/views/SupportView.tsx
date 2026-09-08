@@ -17,9 +17,8 @@ import {
   MessageSquare, 
   FileText, 
   AlertCircle, 
-  CheckCircle2, 
-  Sparkles, 
-  ClipboardCheck 
+  CheckCircle2,
+  ClipboardCheck
 } from 'lucide-react';
 import { AppPage } from '../../types';
 
@@ -58,9 +57,20 @@ export const SupportView: React.FC<SupportViewProps> = ({ onSelectPage }) => {
   const supportName = 'Tanmay';
 
   const handleCopyEmail = () => {
-    navigator.clipboard.writeText(supportEmail);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    // `navigator.clipboard.writeText` returns a Promise that can reject
+    // (permission denied, document not focused, insecure context) — this
+    // used to set `copied` unconditionally without waiting for it, so a
+    // failed copy still showed "Copied!" with nothing actually on the
+    // clipboard and an unhandled rejection logged to the console.
+    navigator.clipboard.writeText(supportEmail).then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      },
+      () => {
+        setStatusMessage({ type: 'error', text: 'Could not copy to clipboard. Copy the email manually: ' + supportEmail });
+      }
+    );
   };
 
   const toggleFaq = (id: number) => {
@@ -188,13 +198,22 @@ export const SupportView: React.FC<SupportViewProps> = ({ onSelectPage }) => {
     }
 
     const fullDraft = `To: ${supportEmail}\nSubject: ${getEffectiveSubject()}\n\n${getFormattedEmailBody()}`;
-    navigator.clipboard.writeText(fullDraft);
-    setCopiedTemplate(true);
-    setStatusMessage({ 
-      type: 'success', 
-      text: 'Email draft copied to clipboard!' 
-    });
-    setTimeout(() => setCopiedTemplate(false), 3000);
+    navigator.clipboard.writeText(fullDraft).then(
+      () => {
+        setCopiedTemplate(true);
+        setStatusMessage({
+          type: 'success',
+          text: 'Email draft copied to clipboard!'
+        });
+        setTimeout(() => setCopiedTemplate(false), 3000);
+      },
+      () => {
+        setStatusMessage({
+          type: 'error',
+          text: 'Could not copy to clipboard. Try "Send via Mail App" or "Open in Gmail" instead.'
+        });
+      }
+    );
   };
 
   const categories = [
@@ -495,7 +514,6 @@ export const SupportView: React.FC<SupportViewProps> = ({ onSelectPage }) => {
           {/* Category Selection */}
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-300 flex items-center space-x-1.5">
-              <Sparkles className="h-3.5 w-3.5 text-indigo-400" />
               <span>Category</span>
             </label>
             <div className="flex flex-wrap gap-2">
