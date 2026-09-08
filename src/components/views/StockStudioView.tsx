@@ -1,19 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  TrendingUp, 
-  Activity, 
-  Sparkles, 
-  ShieldCheck, 
-  RefreshCw, 
-  Search,
-  Cpu,
+import {
+  TrendingUp,
+  RefreshCw,
   Zap,
   Globe,
   Layers,
-  CheckCircle2,
-  ArrowUpRight
+  CheckCircle2
 } from 'lucide-react';
-import { MarketTicker, MarketSignal, PurchasedHolding, TradingMode, AppPage, CandlestickPatternDetection, StockPrediction } from '../../types';
+import { MarketTicker, MarketSignal, TradingMode, AppPage, CandlestickPatternDetection, StockPrediction } from '../../types';
 import { CandlestickChart } from '../CandlestickChart';
 import { SignalCard } from '../SignalCard';
 
@@ -25,11 +19,7 @@ interface StockStudioViewProps {
   onGenerateSignal: (params: { ticker: MarketTicker; timeframe: string; riskProfile: string; strategy: string }) => void;
   isLoading: boolean;
   audioEnabled: boolean;
-  purchasedHoldings: PurchasedHolding[];
-  onMarkAsBought: (signal: MarketSignal) => void;
-  onOpenSellModal: (holding: PurchasedHolding) => void;
   onOpenCalculatorForSignal: (signal: MarketSignal) => void;
-  capital: number;
   currency: 'INR' | 'USD';
   tradingMode?: TradingMode;
   onToggleTradingMode?: () => void;
@@ -46,30 +36,35 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
   onGenerateSignal,
   isLoading,
   audioEnabled,
-  purchasedHoldings,
-  onMarkAsBought,
-  onOpenSellModal,
   onOpenCalculatorForSignal,
-  capital,
   currency,
   tradingMode = 'simple',
-  onToggleTradingMode,
   onSelectPage,
   predictions = [],
   marketStatus = 'CLOSED'
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
   const [selectedTimeframe, setSelectedTimeframe] = useState('15m');
   const [selectedRiskProfile, setSelectedRiskProfile] = useState('Moderate');
   const [selectedStrategy, setSelectedStrategy] = useState('AI Adaptive Momentum');
   const [detectedPatterns, setDetectedPatterns] = useState<CandlestickPatternDetection[]>([]);
   const [isScanningPatterns, setIsScanningPatterns] = useState<boolean>(false);
 
-  const currSymbol = currency === 'INR' ? '₹' : '$';
+  const isAdvanced = tradingMode === 'advanced';
 
   // Run Candlestick Pattern Detection Scanner when chart data or timeframe changes
   useEffect(() => {
-    if (currentSignal?.chartData && currentSignal.chartData.length > 0) {
+    // Same class of bug as the timeframe-selection race in App.tsx's
+    // handleGenerateSignal: clicking timeframes quickly fires overlapping
+    // scanner requests here too, and with no guard the response that happens
+    // to land last wins regardless of which chartData it was actually for —
+    // showing patterns detected on a chart the user has already switched
+    // away from. `cancelled` makes a stale response's result a no-op instead.
+    let cancelled = false;
+
+    // Institutional pattern-recognition is a Pro-mode feature (per the
+    // Sidebar's Simple/Pro toggle) — skip the fetch entirely in Simple mode
+    // instead of running it and just hiding the panel.
+    if (isAdvanced && currentSignal?.chartData && currentSignal.chartData.length > 0) {
       setIsScanningPatterns(true);
       fetch('/api/candlestick-scanner', {
         method: 'POST',
@@ -81,23 +76,17 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
       })
         .then(res => res.json())
         .then(data => {
+          if (cancelled) return;
           if (data.success && Array.isArray(data.patternsDetected)) {
             setDetectedPatterns(data.patternsDetected);
           }
         })
-        .catch(err => console.warn('Pattern scanner error:', err))
-        .finally(() => setIsScanningPatterns(false));
+        .catch(err => { if (!cancelled) console.warn('Pattern scanner error:', err); })
+        .finally(() => { if (!cancelled) setIsScanningPatterns(false); });
     }
-  }, [currentSignal?.chartData, selectedTicker.symbol, selectedTimeframe]);
 
-  // Filter tickers for quick selector
-  const filteredTickers = tickers.filter(t => 
-    t.symbol.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    t.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const isHolding = currentSignal ? purchasedHoldings.some(h => h.symbol === currentSignal.symbol) : false;
-  const currentHolding = currentSignal ? purchasedHoldings.find(h => h.symbol === currentSignal.symbol) : undefined;
+    return () => { cancelled = true; };
+  }, [isAdvanced, currentSignal?.chartData, selectedTicker.symbol, selectedTimeframe]);
 
   const handleTimeframeChange = (tf: string) => {
     setSelectedTimeframe(tf);
@@ -146,31 +135,21 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
                   {selectedTicker.symbol}
                 </span>
                 <span className="px-2 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                  Google Finance Live
+                  Yahoo Finance (Unofficial)
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Institutional candlestick pattern recognition, multi-timeframe moving averages, and news sentiment confluence.
+                {isAdvanced
+                  ? 'Institutional candlestick pattern recognition, multi-timeframe moving averages, and news sentiment confluence.'
+                  : 'Live charts and AI-generated buy zones for this stock.'}
               </p>
             </div>
-          </div>
-
-          {/* Quick Stock Search & Switcher */}
-          <div className="relative w-full lg:w-72">
-            <Search className="h-4 w-4 text-slate-400 absolute left-3 top-2.5" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              placeholder="Search BSE stock..."
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-            />
           </div>
         </div>
 
         {/* Quick Ticker Chips */}
         <div className="flex items-center space-x-2 overflow-x-auto pb-1 custom-scrollbar">
-          {filteredTickers.map(t => {
+          {tickers.map(t => {
             const isSelected = selectedTicker.symbol === t.symbol;
             const isPositive = t.changePercent >= 0;
 
@@ -254,48 +233,6 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
         </div>
       </div>
 
-      {/* Portfolio Impact if Owned */}
-      {isHolding && currentHolding && currentSignal && (() => {
-        const currentTotalVal = currentHolding.quantity * currentSignal.currentPrice;
-        const investedVal = currentHolding.purchasePrice * currentHolding.quantity;
-        const pnl = currentTotalVal - investedVal;
-        const pnlPercent = investedVal > 0 ? ((pnl / investedVal) * 100).toFixed(2) : '0.00';
-        const isProfit = pnl >= 0;
-
-        return (
-          <div className="bg-slate-900 border border-cyan-500/40 rounded-2xl p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl">
-            <div className="space-y-1">
-              <div className="text-xs font-bold text-cyan-400 uppercase tracking-wider font-mono flex items-center space-x-1.5">
-                <ShieldCheck className="h-4 w-4" />
-                <span>Active Position in Your Portfolio</span>
-              </div>
-              <div className="text-sm text-slate-200">
-                You hold <strong className="text-white font-mono">{currentHolding.quantity} shares</strong> bought at <strong className="text-white font-mono">{currSymbol}{currentHolding.purchasePrice}</strong>
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-4 text-xs font-mono">
-              <div>
-                <span className="text-slate-400 block text-[10px]">Current Valuation</span>
-                <span className="text-white font-bold text-sm">{currSymbol}{currentTotalVal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px]">Unrealized P&L</span>
-                <span className={`font-extrabold text-sm ${isProfit ? 'text-emerald-400' : 'text-rose-400'}`}>
-                  {isProfit ? '+' : ''}{currSymbol}{pnl.toFixed(2)} ({isProfit ? '+' : ''}{pnlPercent}%)
-                </span>
-              </div>
-              <button
-                onClick={() => onOpenSellModal(currentHolding)}
-                className="px-3.5 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs shadow-md cursor-pointer"
-              >
-                Record Sale
-              </button>
-            </div>
-          </div>
-        );
-      })()}
-
       {/* Candlestick Chart */}
       {currentSignal && (() => {
         const matchingPrediction = predictions.find(p => p.symbol === currentSignal.symbol) || null;
@@ -307,7 +244,7 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
               stockName={currentSignal.stockName}
               currency={currentSignal.currency}
               buyZone={currentSignal.buyZone}
-              sellZone={isHolding ? currentSignal.sellZone : undefined}
+              sellZone={currentSignal.sellZone}
               stopLoss={currentSignal.stopLoss}
               timeframe={selectedTimeframe}
               onTimeframeChange={handleTimeframeChange}
@@ -315,7 +252,8 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
               marketStatus={marketStatus}
             />
 
-            {/* Real-Time Candlestick Pattern Recognition Engine Panel */}
+            {/* Real-Time Candlestick Pattern Recognition Engine Panel — Pro-mode only */}
+          {isAdvanced && (
           <div className="p-5 rounded-2xl bg-slate-900/90 border border-slate-800 shadow-xl space-y-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2">
@@ -350,15 +288,14 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
               ))}
             </div>
           </div>
+          )}
 
           {/* Actionable Signal Card */}
           <SignalCard
             signal={currentSignal}
             onOpenCalculatorForSignal={onOpenCalculatorForSignal}
             audioEnabled={audioEnabled}
-            isBought={isHolding}
-            onMarkAsBought={onMarkAsBought}
-            tradingMode={tradingMode}
+            onViewFullAnalysis={() => onSelectPage?.('advanced-analytics')}
           />
 
           {/* Quick Transition to News & Upgrades Page */}
