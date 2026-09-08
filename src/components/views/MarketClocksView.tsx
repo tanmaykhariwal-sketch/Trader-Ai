@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Clock, 
-  Globe, 
-  Calendar, 
-  AlertCircle, 
-  CheckCircle2, 
-  Sparkles,
+import {
+  Clock,
+  Globe,
+  Calendar,
+  AlertCircle,
+  CheckCircle2,
   ArrowRight,
   TrendingUp
 } from 'lucide-react';
+import { getBseMarketStatus, BSE_HOLIDAYS } from '../../utils/marketHours';
 
 export const MarketClocksView: React.FC = () => {
   const [time, setTime] = useState<Date>(new Date());
@@ -38,35 +38,22 @@ export const MarketClocksView: React.FC = () => {
     });
   };
 
-  // Indian Market Session Status Calculations
-  const getBseStatus = () => {
-    const istHours = parseInt(time.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', hour: '2-digit', hour12: false }));
-    const istMinutes = parseInt(time.toLocaleTimeString('en-US', { timeZone: 'Asia/Kolkata', minute: '2-digit' }));
-    const currentMins = istHours * 60 + istMinutes;
-
-    const day = time.getDay();
-    const isWeekend = day === 0 || day === 6;
-
-    if (isWeekend) {
-      return { status: 'Closed (Weekend)', color: 'text-rose-400', bg: 'bg-rose-500/10 border-rose-500/30', note: 'Opens Monday 09:15 AM IST' };
-    }
-
-    if (currentMins >= 540 && currentMins < 555) {
-      return { status: 'Pre-Market Discovery (09:00 - 09:15 AM)', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30', note: 'Order Matching & Equilibrium' };
-    }
-
-    if (currentMins >= 555 && currentMins < 930) {
-      return { status: 'Live Market Trading (09:15 AM - 03:30 PM)', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30', note: 'Normal Session Active' };
-    }
-
-    if (currentMins >= 930 && currentMins < 940) {
-      return { status: 'Closing Price Session (03:30 - 03:40 PM)', color: 'text-amber-400', bg: 'bg-amber-500/10 border-amber-500/30', note: 'Weighted Average Calculation' };
-    }
-
-    return { status: 'Market Closed', color: 'text-slate-400', bg: 'bg-slate-800 border-slate-700', note: 'Opens next trading day at 09:15 AM IST' };
+  // Canonical, holiday-aware BSE session status — the single source of truth
+  // used everywhere else in the app (Sidebar, ticker bar, Market Hub), so
+  // this page can never disagree with the rest of the app on a holiday.
+  const marketStatus = getBseMarketStatus(time);
+  const bseStatus = {
+    status: marketStatus.statusLabel,
+    color: marketStatus.isHoliday
+      ? 'text-amber-400'
+      : marketStatus.isOpen
+      ? 'text-emerald-400'
+      : marketStatus.isPreMarket
+      ? 'text-amber-400'
+      : 'text-slate-400',
+    bg: marketStatus.badgeClass,
+    note: marketStatus.nextSessionLabel
   };
-
-  const bseStatus = getBseStatus();
 
   const exchanges = [
     {
@@ -126,17 +113,25 @@ export const MarketClocksView: React.FC = () => {
     }
   ];
 
-  const holidays2026 = [
-    { date: '26 Jan 2026', day: 'Monday', occasion: 'Republic Day', status: 'Holiday' },
-    { date: '03 Mar 2026', day: 'Tuesday', occasion: 'Holi', status: 'Holiday' },
-    { date: '20 Mar 2026', day: 'Friday', occasion: 'Eid-ul-Fitr', status: 'Holiday' },
-    { date: '03 Apr 2026', day: 'Friday', occasion: 'Good Friday', status: 'Holiday' },
-    { date: '14 Apr 2026', day: 'Tuesday', occasion: 'Dr. Ambedkar Jayanti', status: 'Holiday' },
-    { date: '01 May 2026', day: 'Friday', occasion: 'Maharashtra Day', status: 'Holiday' },
-    { date: '15 Aug 2026', day: 'Saturday', occasion: 'Independence Day', status: 'Weekend' },
-    { date: '02 Oct 2026', day: 'Friday', occasion: 'Mahatma Gandhi Jayanti', status: 'Holiday' },
-    { date: '08 Nov 2026', day: 'Sunday', occasion: 'Diwali Laxmi Pujan (Muhurat Trading)', status: 'Special 1-hr Session' }
-  ];
+  // Derived from the same BSE_HOLIDAYS map getBseMarketStatus uses for the
+  // live status badge above — this panel used to be a separate hand-typed
+  // list that silently drifted from it (two conflicting dates for Holi and
+  // Diwali, and nine 2026 holidays present in the canonical list but
+  // missing here entirely, including the very next one: Janmashtami on
+  // 4 Sep 2026, which the badge would call a holiday while this panel
+  // said nothing was happening that day).
+  const holidays2026 = Object.entries(BSE_HOLIDAYS)
+    .filter(([dateKey]) => dateKey.startsWith('2026-'))
+    .map(([dateKey, occasion]) => {
+      const d = new Date(`${dateKey}T12:00:00+05:30`);
+      return {
+        date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+        day: d.toLocaleDateString('en-US', { weekday: 'long' }),
+        occasion,
+        sortKey: dateKey
+      };
+    })
+    .sort((a, b) => a.sortKey.localeCompare(b.sortKey));
 
   return (
     <div className="space-y-6 animate-in fade-in duration-200">
@@ -162,8 +157,17 @@ export const MarketClocksView: React.FC = () => {
         {/* Live BSE Status */}
         <div className={`px-4 py-2.5 rounded-xl border ${bseStatus.bg} flex items-center space-x-2.5`}>
           <span className="relative flex h-2.5 w-2.5">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+            {/* Dot was hardcoded emerald + always pulsing regardless of the
+                actual status text right next to it — a market holiday or a
+                closed-for-the-day session showed a pinging "live" green dot
+                beside grey/amber text. Only pulse (and go green) when the
+                market is genuinely open. */}
+            {marketStatus.isOpen && (
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            )}
+            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${
+              marketStatus.isOpen ? 'bg-emerald-500' : marketStatus.isHoliday || marketStatus.isPreMarket ? 'bg-amber-500' : 'bg-slate-500'
+            }`}></span>
           </span>
           <div>
             <div className={`text-xs font-black uppercase ${bseStatus.color}`}>{bseStatus.status}</div>
@@ -172,20 +176,16 @@ export const MarketClocksView: React.FC = () => {
         </div>
       </div>
 
-      {/* Global Exchanges Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {exchanges.map((ex) => {
+      {/* Primary Exchange: BSE */}
+      <div className="grid grid-cols-1 gap-4">
+        {exchanges.filter((ex) => ex.isPrimary).map((ex) => {
           const localTime = getTimeInZone(ex.timeZone);
           const localDate = getDateInZone(ex.timeZone);
 
           return (
             <div
               key={ex.code}
-              className={`p-5 rounded-2xl border shadow-xl transition-all ${
-                ex.isPrimary 
-                  ? 'bg-gradient-to-br from-slate-900 to-emerald-950/20 border-emerald-500/40' 
-                  : 'bg-slate-900/90 border-slate-800'
-              }`}
+              className="p-5 rounded-2xl border shadow-xl transition-all bg-gradient-to-br from-slate-900 to-emerald-950/20 border-emerald-500/40"
             >
               <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
                 <div className="flex items-center space-x-2.5">
@@ -228,6 +228,31 @@ export const MarketClocksView: React.FC = () => {
             </div>
           );
         })}
+      </div>
+
+      {/* Other Global Markets: compact secondary strip */}
+      <div>
+        <div className="text-[10px] uppercase text-slate-500 font-mono mb-2 tracking-wider">
+          Other Global Markets
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {exchanges.filter((ex) => !ex.isPrimary).map((ex) => {
+            const localTime = getTimeInZone(ex.timeZone);
+            const tzAbbrev = ex.localHours.split(' ').pop();
+
+            return (
+              <div
+                key={ex.code}
+                className="px-3 py-1.5 rounded-lg border bg-slate-900/50 border-slate-800/60 text-slate-400 flex items-center space-x-1.5"
+              >
+                <span className="text-sm">{ex.flag}</span>
+                <span className="text-[11px] font-mono font-bold text-slate-300">{ex.code}</span>
+                <span className="text-[11px] font-mono">·</span>
+                <span className="text-[11px] font-mono">{localTime} {tzAbbrev}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
 
       {/* Indian Trading Timeline & Holidays */}
@@ -310,12 +335,8 @@ export const MarketClocksView: React.FC = () => {
                   <div className="font-bold text-white">{h.occasion}</div>
                   <div className="text-[11px] text-slate-400 font-mono">{h.date} ({h.day})</div>
                 </div>
-                <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
-                  h.status === 'Special 1-hr Session'
-                    ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
-                    : 'bg-rose-500/10 text-rose-300 border border-rose-500/20'
-                }`}>
-                  {h.status}
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/10 text-rose-300 border border-rose-500/20">
+                  Holiday
                 </span>
               </div>
             ))}
