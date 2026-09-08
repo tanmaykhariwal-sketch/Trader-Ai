@@ -1,6 +1,6 @@
 {
   "name": "Trader AI",
-  "description": "Institutional AI financial advisor with Google Finance live market rates, real-time news sentiment intelligence, automated candlestick pattern recognition, and stock upgrade/downgrade predictive modeling.",
+  "description": "BSE paper-trading terminal with Yahoo Finance (unofficial) live market rates, real-time news sentiment intelligence, AI-assisted candlestick pattern recognition, and stock upgrade/downgrade forecasts. Educational and paper-trading only — not investment advice.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
