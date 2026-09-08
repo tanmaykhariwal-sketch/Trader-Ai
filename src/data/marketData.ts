@@ -1,8 +1,9 @@
-import { MarketTicker, ExchangeStatus, MarketSignal, CandlestickData, JournalEntry } from '../types';
+import { MarketTicker, ExchangeStatus, MarketSignal, CandlestickData } from '../types';
 
 export const INITIAL_TICKERS: MarketTicker[] = [
   // Bombay Stock Exchange (BSE) Equities & Benchmark Index
   { symbol: 'SENSEX', name: 'BSE SENSEX Index', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 76552.55, change: -1103.55, changePercent: -1.42, currency: 'INR', volume: '1.9B', dayHigh: 77694.97, dayLow: 77088.74, isPopular: true },
+  { symbol: 'SENSEXADD', name: 'DSP BSE Sensex ETF', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 79.08, change: 0, changePercent: 0, currency: 'INR', volume: 'N/A', dayHigh: 79.08, dayLow: 78.63, isPopular: true },
   { symbol: 'RELIANCE', name: 'Reliance Industries Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 1289.25, change: -9.75, changePercent: -0.75, currency: 'INR', volume: '16.2M', dayHigh: 1308.55, dayLow: 1285.00, isPopular: true },
   { symbol: 'TCS', name: 'Tata Consultancy Services', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 2255.70, change: -15.30, changePercent: -0.67, currency: 'INR', volume: '4.2M', dayHigh: 2283.90, dayLow: 2243.75, isPopular: true },
   { symbol: 'HDFCBANK', name: 'HDFC Bank Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 714.75, change: -12.35, changePercent: -1.70, currency: 'INR', volume: '22.4M', dayHigh: 728.95, dayLow: 710.00, isPopular: true },
@@ -15,7 +16,56 @@ export const INITIAL_TICKERS: MarketTicker[] = [
   { symbol: 'MARUTI', name: 'Maruti Suzuki India Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 13466.00, change: 85.00, changePercent: 0.64, currency: 'INR', volume: '1.2M', dayHigh: 13540.00, dayLow: 13380.00, isPopular: true },
   { symbol: 'ITC', name: 'ITC Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 268.40, change: -2.45, changePercent: -0.90, currency: 'INR', volume: '12.8M', dayHigh: 271.20, dayLow: 268.00, isPopular: true },
   { symbol: 'AXISBANK', name: 'Axis Bank Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 1255.05, change: 8.50, changePercent: 0.68, currency: 'INR', volume: '9.4M', dayHigh: 1264.00, dayLow: 1245.00 },
-  { symbol: 'TATAMOTORS', name: 'Tata Motors Passenger Vehicles', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 986.50, change: 11.30, changePercent: 1.16, currency: 'INR', volume: '18.5M', dayHigh: 994.00, dayLow: 976.20 }
+  { symbol: 'TATAMOTORS', name: 'Tata Motors Passenger Vehicles', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 986.50, change: 11.30, changePercent: 1.16, currency: 'INR', volume: '18.5M', dayHigh: 994.00, dayLow: 976.20 },
+  { symbol: 'HINDUNILVR', name: 'Hindustan Unilever Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 2385.00, change: -13.50, changePercent: -0.56, currency: 'INR', volume: '3.2M', dayHigh: 2405.00, dayLow: 2380.00 },
+  { symbol: 'KOTAKBANK', name: 'Kotak Mahindra Bank Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 1789.00, change: -13.40, changePercent: -0.74, currency: 'INR', volume: '4.8M', dayHigh: 1808.00, dayLow: 1782.00 },
+  { symbol: 'BAJFINANCE', name: 'Bajaj Finance Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 7145.00, change: 46.80, changePercent: 0.66, currency: 'INR', volume: '1.9M', dayHigh: 7180.00, dayLow: 7095.00 },
+  { symbol: 'BAJAJFINSV', name: 'Bajaj Finserv Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 1782.00, change: -13.60, changePercent: -0.76, currency: 'INR', volume: '2.1M', dayHigh: 1802.00, dayLow: 1775.00 },
+  { symbol: 'ASIANPAINT', name: 'Asian Paints Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 2412.00, change: -17.10, changePercent: -0.70, currency: 'INR', volume: '1.6M', dayHigh: 2435.00, dayLow: 2405.00 },
+  { symbol: 'WIPRO', name: 'Wipro Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 268.00, change: -2.40, changePercent: -0.89, currency: 'INR', volume: '9.7M', dayHigh: 271.50, dayLow: 267.00 },
+  { symbol: 'HCLTECH', name: 'HCL Technologies Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 1785.00, change: -13.30, changePercent: -0.74, currency: 'INR', volume: '2.8M', dayHigh: 1805.00, dayLow: 1778.00 },
+  { symbol: 'SUNPHARMA', name: 'Sun Pharmaceutical Industries', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 1745.00, change: -7.80, changePercent: -0.45, currency: 'INR', volume: '3.1M', dayHigh: 1762.00, dayLow: 1738.00 },
+  { symbol: 'TITAN', name: 'Titan Company Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 3385.00, change: -25.20, changePercent: -0.74, currency: 'INR', volume: '1.4M', dayHigh: 3420.00, dayLow: 3378.00 },
+  { symbol: 'ULTRACEMCO', name: 'UltraTech Cement Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 11245.00, change: -67.70, changePercent: -0.60, currency: 'INR', volume: '0.5M', dayHigh: 11340.00, dayLow: 11210.00 },
+  { symbol: 'NESTLEIND', name: 'Nestle India Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 2185.00, change: -14.40, changePercent: -0.65, currency: 'INR', volume: '0.4M', dayHigh: 2205.00, dayLow: 2178.00 },
+  { symbol: 'POWERGRID', name: 'Power Grid Corp of India', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 298.00, change: -3.50, changePercent: -1.16, currency: 'INR', volume: '11.2M', dayHigh: 302.00, dayLow: 296.50 },
+  { symbol: 'NTPC', name: 'NTPC Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 342.00, change: -3.90, changePercent: -1.13, currency: 'INR', volume: '10.5M', dayHigh: 347.00, dayLow: 340.00 },
+  { symbol: 'ONGC', name: 'Oil & Natural Gas Corp', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 248.00, change: -2.60, changePercent: -1.04, currency: 'INR', volume: '13.8M', dayHigh: 251.50, dayLow: 246.80 },
+  { symbol: 'COALINDIA', name: 'Coal India Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 402.00, change: -3.70, changePercent: -0.91, currency: 'INR', volume: '8.6M', dayHigh: 407.00, dayLow: 400.00 },
+  { symbol: 'TATASTEEL', name: 'Tata Steel Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 148.00, change: -1.60, changePercent: -1.07, currency: 'INR', volume: '25.4M', dayHigh: 150.20, dayLow: 147.30 },
+  { symbol: 'JSWSTEEL', name: 'JSW Steel Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 985.00, change: -7.30, changePercent: -0.74, currency: 'INR', volume: '2.9M', dayHigh: 996.00, dayLow: 980.00 },
+  { symbol: 'HINDALCO', name: 'Hindalco Industries Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 645.00, change: -5.20, changePercent: -0.80, currency: 'INR', volume: '6.7M', dayHigh: 652.00, dayLow: 641.00 },
+  { symbol: 'GRASIM', name: 'Grasim Industries Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 2545.00, change: -16.80, changePercent: -0.66, currency: 'INR', volume: '1.2M', dayHigh: 2568.00, dayLow: 2538.00 },
+  { symbol: 'ADANIPORTS', name: 'Adani Ports & SEZ Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 1385.00, change: -13.40, changePercent: -0.96, currency: 'INR', volume: '3.5M', dayHigh: 1402.00, dayLow: 1378.00 },
+  { symbol: 'INDUSINDBK', name: 'IndusInd Bank Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 985.00, change: -7.70, changePercent: -0.78, currency: 'INR', volume: '5.4M', dayHigh: 998.00, dayLow: 980.00 },
+  { symbol: 'TECHM', name: 'Tech Mahindra Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 1685.00, change: -13.50, changePercent: -0.80, currency: 'INR', volume: '2.4M', dayHigh: 1702.00, dayLow: 1678.00 },
+  { symbol: 'DRREDDY', name: "Dr. Reddy's Laboratories", region: 'NSE_BSE', exchange: 'BSE', lastPrice: 1245.00, change: -7.90, changePercent: -0.63, currency: 'INR', volume: '2.0M', dayHigh: 1258.00, dayLow: 1240.00 },
+  { symbol: 'CIPLA', name: 'Cipla Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 1512.00, change: -7.40, changePercent: -0.49, currency: 'INR', volume: '2.6M', dayHigh: 1525.00, dayLow: 1505.00 },
+  { symbol: 'DIVISLAB', name: "Divi's Laboratories Ltd", region: 'NSE_BSE', exchange: 'BSE', lastPrice: 5985.00, change: -27.30, changePercent: -0.46, currency: 'INR', volume: '0.5M', dayHigh: 6040.00, dayLow: 5970.00 },
+  { symbol: 'BRITANNIA', name: 'Britannia Industries Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 4985.00, change: -27.80, changePercent: -0.56, currency: 'INR', volume: '0.4M', dayHigh: 5030.00, dayLow: 4970.00 },
+  { symbol: 'EICHERMOT', name: 'Eicher Motors Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 4785.00, change: -27.60, changePercent: -0.57, currency: 'INR', volume: '0.6M', dayHigh: 4830.00, dayLow: 4770.00 },
+  { symbol: 'HEROMOTOCO', name: 'Hero MotoCorp Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 4285.00, change: -27.90, changePercent: -0.65, currency: 'INR', volume: '0.9M', dayHigh: 4330.00, dayLow: 4270.00 },
+  { symbol: 'BAJAJ-AUTO', name: 'Bajaj Auto Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 8985.00, change: -57.50, changePercent: -0.64, currency: 'INR', volume: '0.4M', dayHigh: 9050.00, dayLow: 8960.00 },
+  { symbol: 'M&M', name: 'Mahindra & Mahindra Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 2985.00, change: -17.40, changePercent: -0.58, currency: 'INR', volume: '2.3M', dayHigh: 3010.00, dayLow: 2975.00 },
+  { symbol: 'SHREECEM', name: 'Shree Cement Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 26485.00, change: -127.30, changePercent: -0.48, currency: 'INR', volume: '0.1M', dayHigh: 26680.00, dayLow: 26400.00 },
+  { symbol: 'APOLLOHOSP', name: 'Apollo Hospitals Enterprise', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 6985.00, change: -39.60, changePercent: -0.56, currency: 'INR', volume: '0.5M', dayHigh: 7040.00, dayLow: 6960.00 },
+  { symbol: 'SBILIFE', name: 'SBI Life Insurance Co', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 1585.00, change: -13.20, changePercent: -0.83, currency: 'INR', volume: '1.5M', dayHigh: 1602.00, dayLow: 1578.00 },
+  { symbol: 'HDFCLIFE', name: 'HDFC Life Insurance Co', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 685.00, change: -5.40, changePercent: -0.78, currency: 'INR', volume: '4.2M', dayHigh: 692.00, dayLow: 680.00 },
+  { symbol: 'BPCL', name: 'Bharat Petroleum Corp', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 312.00, change: -2.70, changePercent: -0.86, currency: 'INR', volume: '7.9M', dayHigh: 317.00, dayLow: 310.00 },
+  { symbol: 'IOC', name: 'Indian Oil Corp Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 142.00, change: -1.50, changePercent: -1.04, currency: 'INR', volume: '19.3M', dayHigh: 144.50, dayLow: 141.00 },
+  { symbol: 'VEDL', name: 'Vedanta Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 445.00, change: -3.90, changePercent: -0.87, currency: 'INR', volume: '9.1M', dayHigh: 450.00, dayLow: 441.00 },
+  { symbol: 'PIDILITIND', name: 'Pidilite Industries Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 2985.00, change: -20.70, changePercent: -0.69, currency: 'INR', volume: '0.3M', dayHigh: 3020.00, dayLow: 2970.00 },
+  { symbol: 'DABUR', name: 'Dabur India Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 512.00, change: -3.80, changePercent: -0.74, currency: 'INR', volume: '3.6M', dayHigh: 518.00, dayLow: 508.00 },
+  { symbol: 'GODREJCP', name: 'Godrej Consumer Products', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 1145.00, change: -7.40, changePercent: -0.64, currency: 'INR', volume: '1.8M', dayHigh: 1158.00, dayLow: 1138.00 },
+  { symbol: 'SIEMENS', name: 'Siemens Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 6185.00, change: -39.90, changePercent: -0.64, currency: 'INR', volume: '0.3M', dayHigh: 6250.00, dayLow: 6160.00 },
+  { symbol: 'DLF', name: 'DLF Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 785.00, change: -6.30, changePercent: -0.80, currency: 'INR', volume: '4.9M', dayHigh: 793.00, dayLow: 780.00 },
+  { symbol: 'ZOMATO', name: 'Eternal Ltd (Zomato)', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 265.00, change: -2.80, changePercent: -1.05, currency: 'INR', volume: '22.7M', dayHigh: 269.50, dayLow: 263.00 },
+  { symbol: 'PAYTM', name: 'One97 Communications (Paytm)', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 895.00, change: -7.10, changePercent: -0.79, currency: 'INR', volume: '5.8M', dayHigh: 905.00, dayLow: 888.00 },
+  { symbol: 'IRCTC', name: 'Indian Railway Catering & Tourism', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 785.00, change: -6.60, changePercent: -0.84, currency: 'INR', volume: '2.5M', dayHigh: 793.00, dayLow: 780.00 },
+  { symbol: 'TATAPOWER', name: 'Tata Power Company Ltd', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 412.00, change: -3.30, changePercent: -0.79, currency: 'INR', volume: '10.4M', dayHigh: 417.00, dayLow: 409.00 },
+  { symbol: 'BANKBARODA', name: 'Bank of Baroda', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 245.00, change: -2.20, changePercent: -0.89, currency: 'INR', volume: '13.6M', dayHigh: 248.50, dayLow: 243.00 },
+  { symbol: 'PNB', name: 'Punjab National Bank', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 112.00, change: -1.10, changePercent: -0.97, currency: 'INR', volume: '21.9M', dayHigh: 114.00, dayLow: 111.00 },
+  { symbol: 'CANBK', name: 'Canara Bank', region: 'NSE_BSE', exchange: 'BSE', lastPrice: 105.00, change: -1.00, changePercent: -0.94, currency: 'INR', volume: '16.2M', dayHigh: 107.00, dayLow: 104.00 }
 ];
 
 export const EXCHANGE_SCHEDULES: ExchangeStatus[] = [
@@ -440,7 +490,4 @@ export const INITIAL_SAMPLE_SIGNALS: MarketSignal[] = [
     chartData: generateCandlesticks(1043.65, 32)
   }
 ];
-
-export const INITIAL_SAMPLE_JOURNAL_ENTRIES: JournalEntry[] = [];
-
 
