@@ -1,23 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { 
-  Bot, 
-  X, 
-  Send, 
-  Sparkles, 
-  TrendingUp, 
-  TrendingDown, 
-  DollarSign, 
-  Clock, 
-  ShieldCheck, 
-  ChevronRight, 
-  Activity, 
-  PieChart, 
-  SlidersHorizontal,
-  HelpCircle,
-  Lightbulb,
-  CheckCircle2
+import {
+  Bot,
+  X,
+  Send,
+  TrendingUp,
+  Calculator
 } from 'lucide-react';
-import { MarketSignal, PurchasedHolding, TradingMode } from '../types';
+import { MarketSignal, TradingMode } from '../types';
 
 interface Message {
   id: string;
@@ -30,11 +19,8 @@ interface Message {
 
 interface MiniAssistantProps {
   signals: MarketSignal[];
-  purchasedHoldings: PurchasedHolding[];
-  capital: number;
   currency: string;
   onSelectSignal?: (signal: MarketSignal) => void;
-  onOpenJournal?: () => void;
   onOpenCalculator?: () => void;
   tradingMode?: TradingMode;
   onToggleTradingMode?: () => void;
@@ -42,11 +28,8 @@ interface MiniAssistantProps {
 
 export const MiniAssistant: React.FC<MiniAssistantProps> = ({
   signals,
-  purchasedHoldings,
-  capital,
   currency,
   onSelectSignal,
-  onOpenJournal,
   onOpenCalculator,
   tradingMode = 'simple',
   onToggleTradingMode
@@ -55,40 +38,78 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
   const [isAdvancedMode, setIsAdvancedMode] = useState(tradingMode === 'advanced');
   const [inputText, setInputText] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
 
   useEffect(() => {
     setIsAdvancedMode(tradingMode === 'advanced');
   }, [tradingMode]);
+
+  // `addAssistantMessage` used to read `isOpen` straight from this
+  // component's closure, but it's called from deep inside handleSendMessage's
+  // async response handler — a closure fixed at the moment the message was
+  // sent, not at the moment the reply actually arrives. Confirmed reachable:
+  // send a question, close the panel before the (up to 6s) response lands,
+  // and the stale `isOpen === true` skipped the unread-count bump entirely —
+  // the reply was appended with zero notification. A ref always reflects the
+  // current value regardless of which render's closure is asking.
+  const isOpenRef = useRef(isOpen);
+  useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
+
+  // Guards handleSendMessage against overlapping responses the same way
+  // App.tsx's handleGenerateSignal guards signal generation: sending a
+  // second message before the first's response lands (two quick-action
+  // chips, or Enter pressed twice) fired two independent requests with no
+  // ordering guarantee, so a slower first response could still append after
+  // a faster second one — visually answering the wrong question.
+  const chatRequestSeq = useRef(0);
   
   const currSym = currency === 'INR' ? '₹' : '$';
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  // Derive Portfolio Figures
-  const totalInvested = purchasedHoldings.reduce((sum, h) => sum + (h.purchasePrice * h.quantity), 0);
-  const currentTotalVal = purchasedHoldings.reduce((sum, h) => {
-    const match = signals.find(s => s.symbol === h.symbol);
-    const price = match ? match.currentPrice : h.purchasePrice;
-    return sum + (h.quantity * price);
-  }, 0);
-  const unrealizedPnL = currentTotalVal - totalInvested;
-  const pnlPct = totalInvested > 0 ? ((unrealizedPnL / totalInvested) * 100).toFixed(2) : '0.00';
-  const isProfit = unrealizedPnL >= 0;
+  const WELCOME_MESSAGE: Message = {
+    id: 'welcome-1',
+    sender: 'assistant',
+    text: `Hello! I am Trader AI, your 15+ Yrs Senior Market Analyst. I'm here to help you navigate BSE stock signals, portfolio risk, and technical confluence. How can I assist your trading today?`,
+    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    badge: 'BSE Live'
+  };
 
-  // Initial Welcome Message
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: 'welcome-1',
-      sender: 'assistant',
-      text: `Hello! I am Trader AI, your 15+ Yrs Senior Market Analyst. I'm here to help you navigate BSE stock signals, portfolio risk, and technical confluence. How can I assist your trading today?`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      badge: 'BSE Live'
+  // Chat history persists across page reloads/navigation, same as the
+  // rest of the app's localStorage-backed state.
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const saved = localStorage.getItem('trader_ai_assistant_messages');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {
+      // fall through to the default welcome message
     }
-  ]);
+    return [WELCOME_MESSAGE];
+  });
+
+  // Unread count is derived from how many messages exist beyond the count the
+  // user last actually saw (persisted separately) — so a message that arrived
+  // in an earlier session, including the very first welcome message on a
+  // brand-new visit, still shows the notification dot until the panel is opened.
+  const [unreadCount, setUnreadCount] = useState<number>(() => {
+    try {
+      const lastRead = parseInt(localStorage.getItem('trader_ai_assistant_last_read') || '0', 10);
+      const savedMessages = localStorage.getItem('trader_ai_assistant_messages');
+      const total = savedMessages ? (JSON.parse(savedMessages) as Message[]).length : 1;
+      return Math.max(0, total - (isNaN(lastRead) ? 0 : lastRead));
+    } catch {
+      return 1;
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('trader_ai_assistant_messages', JSON.stringify(messages));
+  }, [messages]);
 
   const addAssistantMessage = (msg: Message) => {
     setMessages(prev => [...prev, msg]);
-    if (!isOpen) {
+    if (!isOpenRef.current) {
       setUnreadCount(prev => prev + 1);
     }
   };
@@ -96,6 +117,7 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
   useEffect(() => {
     if (isOpen) {
       setUnreadCount(0);
+      localStorage.setItem('trader_ai_assistant_last_read', String(messages.length));
       chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, isOpen, isTyping]);
@@ -104,8 +126,14 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
   const generateAiAnswer = (query: string, advanced: boolean): { responseText: string; signal?: MarketSignal } => {
     const lower = query.toLowerCase();
 
-    const topBuy = signals.find(s => s.signalType.includes('Bullish') || s.signalType.includes('Dip') || s.signalType.includes('Breakout')) || signals[0];
-    const topSell = signals.find(s => s.signalType.includes('Reversal') || s.signalType.includes('Short')) || (signals.length > 1 ? signals[1] : signals[0]);
+    // Mirrors SignalCard.tsx's bearishKeywords classification (lowercase,
+    // full keyword set) — this used to check a narrow, case-sensitive
+    // bullish allowlist, so an uppercase or Downgrade/Underperform bearish
+    // signal matched neither branch and could fall through to topBuy.
+    const bearishKeywords = ['bearish', 'reversal', 'short', 'downgrade', 'underperform'];
+    const isBearishSignal = (s: MarketSignal) => bearishKeywords.some(k => s.signalType.toLowerCase().includes(k));
+    const topBuy = signals.find(s => !isBearishSignal(s)) || signals[0];
+    const topSell = signals.find(isBearishSignal) || (signals.length > 1 ? signals[1] : signals[0]);
 
     if (lower.includes('buy') || lower.includes('signal') || lower.includes('entry') || lower.includes('stock')) {
       if (!topBuy) {
@@ -124,31 +152,22 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
     }
 
     if (lower.includes('sell') || lower.includes('target') || lower.includes('exit')) {
-      if (purchasedHoldings.length > 0) {
-        const firstH = purchasedHoldings[0];
-        return {
-          responseText: `🎯 **Active Holding Target Selling Zone: ${firstH.stockName} (${firstH.symbol})**\n\n• **Purchase Price:** ${currSym}${firstH.purchasePrice.toLocaleString()}\n• **Target Exit Selling Zone:** ${currSym}${firstH.sellZone}\n• **Protective Stop Loss:** ${currSym}${firstH.stopLoss}\n• **Active Time Window:** ${firstH.probableTimeWindow}\n\n*Tip: Sell when price reaches this zone to lock in profits.*`
-        };
+      if (!topSell) {
+        return { responseText: "No live signals are loaded yet to suggest an exit zone for. Wait for signals to refresh, or ask about a specific symbol." };
       }
       return {
         responseText: `🔴 **Key Exit / Target Zone: ${topSell.stockName} (${topSell.symbol})**\n\n• **Target Sell Zone:** ${currSym}${topSell.sellZone}\n• **Stop Loss Trigger:** ${currSym}${topSell.stopLoss}\n• **Reasoning:** Near major resistance. Consider booking profits as price touches target.`
       };
     }
 
-    if (lower.includes('portfolio') || lower.includes('capital') || lower.includes('balance') || lower.includes('pnl') || lower.includes('holdings')) {
-      return {
-        responseText: `📊 **Portfolio & Capital Status**\n\n• **Available Cash Balance:** ${currSym}${capital.toLocaleString()}\n• **Invested Capital:** ${currSym}${totalInvested.toLocaleString()}\n• **Active Stock Holdings:** ${purchasedHoldings.length} stocks\n• **Current Profit/Loss:** ${isProfit ? '+' : ''}${currSym}${unrealizedPnL.toLocaleString(undefined, { maximumFractionDigits: 2 })} (${isProfit ? '+' : ''}${pnlPct}%)\n• **Total Account Value:** ${currSym}${(capital + currentTotalVal).toLocaleString(undefined, { maximumFractionDigits: 2 })}\n\n*Capital automatically updates when you mark stocks as bought or sold.*`
-      };
-    }
-
     if (lower.includes('tip') || lower.includes('advice') || lower.includes('rule') || lower.includes('risk')) {
       if (advanced) {
         return {
-          responseText: `💡 **Institutional Quantitative Risk Rules**\n\n1. **Capital Allocation:** Risk maximum 1.5% of total equity per setup (${currSym}${(capital * 0.015).toLocaleString()}).\n2. **Order Flow Confluence:** Confirm 15-minute Fair Value Gap (FVG) absorption prior to market entry.\n3. **Volume Spread Confirmation:** Avoid entries when breakout volume is below 1.5x 20-period moving average.`
+          responseText: `💡 **Institutional Quantitative Risk Rules**\n\n1. **Capital Allocation:** Risk maximum 1.5% of total equity per setup — use the Risk & Sizing calculator for the exact number.\n2. **Order Flow Confluence:** Confirm 15-minute Fair Value Gap (FVG) absorption prior to market entry.\n3. **Volume Spread Confirmation:** Avoid entries when breakout volume is below 1.5x 20-period moving average.`
         };
       }
       return {
-        responseText: `💡 **Senior Trader Golden Rules**\n\n1. **Small Position Sizing:** Never put all your money in one stock. Keep trades under 5%–10% of your capital (${currSym}${(capital * 0.08).toLocaleString()}).\n2. **Always Use Stop Loss:** Protect your capital by setting stop loss orders.\n3. **Trade During Peak Hours:** Best liquidity on BSE is 9:30–11:30 AM & 1:30–3:00 PM IST.`
+        responseText: `💡 **Senior Trader Golden Rules**\n\n1. **Small Position Sizing:** Never put all your money in one stock. Keep trades under 5%–10% of your capital — the Risk & Sizing calculator works this out for you.\n2. **Always Use Stop Loss:** Protect your capital by setting stop loss orders.\n3. **Trade During Peak Hours:** Best liquidity on BSE is 9:30–11:30 AM & 1:30–3:00 PM IST.`
       };
     }
 
@@ -159,13 +178,15 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
     }
 
     return {
-      responseText: `🤖 **Trader AI Assistant for "${query}"**\n\nI am tracking live BSE market structures and signals. Quick actions:\n• **Find Buys:** "What stock should I buy?"\n• **Target Exits:** "Show target selling zones"\n• **Capital:** "Check my balance and P&L"\n• **Risk Tips:** "Give me a trading tip"`
+      responseText: `🤖 **Trader AI Assistant for "${query}"**\n\nI am tracking live BSE market structures and signals. Quick actions:\n• **Find Buys:** "What stock should I buy?"\n• **Target Exits:** "Show target selling zones"\n• **Risk Tips:** "Give me a trading tip"\n• **Technicals:** "Explain RSI and MACD"`
     };
   };
 
   const handleSendMessage = async (textToSend?: string) => {
     const text = textToSend || inputText;
     if (!text.trim()) return;
+
+    const mySeq = ++chatRequestSeq.current;
 
     const userMsg: Message = {
       id: `user-${Date.now()}`,
@@ -191,9 +212,6 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
           message: text.trim(),
           isAdvancedMode,
           marketContext: {
-            capital,
-            totalInvested,
-            unrealizedPnL,
             activeSignalsCount: signals.length,
             topSignals: signals.slice(0, 3).map(s => ({
               symbol: s.symbol,
@@ -210,9 +228,20 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
 
       clearTimeout(timeoutId);
 
+      // A newer message has been sent since this request started — drop
+      // this now-stale response instead of appending an answer to a
+      // question that isn't the latest one asked.
+      if (chatRequestSeq.current !== mySeq) return;
+
       const data = await response.json();
+      if (chatRequestSeq.current !== mySeq) return;
       if (data && data.success && data.text) {
-        const topBuy = signals.find(s => text.toLowerCase().includes(s.symbol.toLowerCase()));
+        // Was a bare substring match (`text.includes(symbol)`), which false-
+        // matched any short ticker that happens to be a substring of an
+        // unrelated word in the sentence (e.g. symbol "IT" inside "wait",
+        // "credIT", etc.) — anchored to word boundaries so only the actual
+        // ticker token matches.
+        const topBuy = signals.find(s => new RegExp(`\\b${s.symbol.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'i').test(text));
         const aiMsg: Message = {
           id: `assistant-${Date.now()}`,
           sender: 'assistant',
@@ -236,6 +265,7 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
         addAssistantMessage(aiMsg);
       }
     } catch {
+      if (chatRequestSeq.current !== mySeq) return;
       const { responseText, signal } = generateAiAnswer(text, isAdvancedMode);
       const aiMsg: Message = {
         id: `assistant-${Date.now()}`,
@@ -247,29 +277,38 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
       };
       addAssistantMessage(aiMsg);
     } finally {
-      setIsTyping(false);
+      // Only the request that's still the latest may clear the typing
+      // indicator — otherwise a stale request finishing after a newer one
+      // was sent could hide the indicator while the real, current request
+      // is still in flight.
+      if (chatRequestSeq.current === mySeq) setIsTyping(false);
     }
   };
 
   const handleToggleMode = () => {
+    // App.tsx always supplies onToggleTradingMode (it's the global sidebar
+    // toggle), so the local-only branch below was structurally dead — the
+    // mode pill and quick-chips did flip correctly (via the tradingMode ->
+    // isAdvancedMode sync effect above), but the confirmation message
+    // explaining what changed never appeared, since it only lived in the
+    // unreachable branch. Now shown on both paths.
+    const nextMode = !isAdvancedMode;
     if (onToggleTradingMode) {
       onToggleTradingMode();
     } else {
-      const nextMode = !isAdvancedMode;
       setIsAdvancedMode(nextMode);
-      
-      // Add mode switch feedback message
-      const modeNotice: Message = {
-        id: `mode-${Date.now()}`,
-        sender: 'assistant',
-        text: nextMode 
-          ? `⚡ **Switched to Advanced Mode**: Responses now include Smart Money Concepts (Order blocks, Fair Value Gaps, RSI divergence, Volume Spread, and mathematical Risk-to-Reward).`
-          : `🌱 **Switched to Simple Mode**: Responses are now streamlined, beginner-friendly, and focused on clear Buy Zones, Selling Targets, and Stop Loss rules.`,
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        badge: nextMode ? 'Advanced Mode' : 'Simple Mode'
-      };
-      addAssistantMessage(modeNotice);
     }
+
+    const modeNotice: Message = {
+      id: `mode-${Date.now()}`,
+      sender: 'assistant',
+      text: nextMode
+        ? `⚡ **Switched to Advanced Mode**: Responses now include Smart Money Concepts (Order blocks, Fair Value Gaps, RSI divergence, Volume Spread, and mathematical Risk-to-Reward).`
+        : `🌱 **Switched to Simple Mode**: Responses are now streamlined, beginner-friendly, and focused on clear Buy Zones, Selling Targets, and Stop Loss rules.`,
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      badge: nextMode ? 'Advanced Mode' : 'Simple Mode'
+    };
+    addAssistantMessage(modeNotice);
   };
 
   return (
@@ -306,6 +345,15 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
             </div>
 
             <div className="flex items-center space-x-1.5">
+              {onOpenCalculator && (
+                <button
+                  onClick={() => { onOpenCalculator(); setIsOpen(false); }}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+                  title="Open Risk & Position Calculator"
+                >
+                  <Calculator className="h-3.5 w-3.5" />
+                </button>
+              )}
               {/* Mode Toggle Button */}
               <button
                 onClick={handleToggleMode}
@@ -400,10 +448,10 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
               🚀 Buy Signals
             </button>
             <button
-              onClick={() => handleSendMessage('Show my portfolio and capital balance')}
+              onClick={() => handleSendMessage('Show target selling zones')}
               className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-[10px] font-bold whitespace-nowrap transition-all"
             >
-              📊 Portfolio
+              🎯 Target Zones
             </button>
             {isAdvancedMode ? (
               <>
@@ -450,7 +498,16 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
               type="text"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
-              placeholder="Ask Trader AI anything (signals, capital)..."
+              onKeyDown={(e) => {
+                // Relying on native implicit form-submission-on-Enter proved
+                // unreliable here, so Enter is handled explicitly rather
+                // than only working through the send button.
+                if (e.key === 'Enter' && inputText.trim()) {
+                  e.preventDefault();
+                  handleSendMessage();
+                }
+              }}
+              placeholder="Ask Trader AI anything (signals, targets, risk)..."
               className="flex-1 bg-slate-900 border border-slate-700/80 rounded-xl px-3 py-2 text-xs font-medium text-white placeholder-slate-500 focus:outline-none focus:ring-1 focus:ring-emerald-400"
             />
             <button
