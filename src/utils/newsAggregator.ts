@@ -372,7 +372,7 @@ const CURATED_GLOBAL_FINANCIAL_HEADLINES: Array<Partial<GlobalFinancialHeadline>
   },
   {
     title: 'Reliance Industries commissions major green hydrogen capex; Jio ARPU acceleration drives EBITDA beats',
-    source: 'Google Finance / LiveMint',
+    source: 'LiveMint',
     url: 'https://www.livemint.com/market',
     snippet: 'Strategic capacity ramp-up and telecom margin expansion create significant institutional re-rating momentum for RELIANCE.',
     category: 'Energy & Commodities',
@@ -390,7 +390,7 @@ const CURATED_GLOBAL_FINANCIAL_HEADLINES: Array<Partial<GlobalFinancialHeadline>
   },
   {
     title: 'Infosys expands multi-year enterprise generative AI orchestration cloud contracts across Europe',
-    source: 'Business Standard / Google Finance',
+    source: 'Business Standard',
     url: 'https://www.business-standard.com',
     snippet: 'Infosys Topaz platform records multi-hundred million dollar deal renewals with top European financial conglomerates.',
     category: 'Tech & AI',
