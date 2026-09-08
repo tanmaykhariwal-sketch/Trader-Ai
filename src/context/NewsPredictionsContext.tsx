@@ -101,8 +101,22 @@ export const NewsPredictionsProvider: React.FC<NewsPredictionsProviderProps> = (
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [selectedBseSymbol, setSelectedBseSymbol] = useState<string | null>(null);
 
+  // Guards against overlapping requests: this callback's identity changes
+  // whenever activeCategory/selectedBseSymbol change, and the effect below
+  // depends on it — so clicking "Related News" on one stock right after
+  // another (or a category pill flipping mid-poll) tears down and restarts
+  // the interval while an earlier fetch for the FIRST stock is still in
+  // flight. Confirmed reachable: click Related News for RELIANCE, then TCS
+  // ~1s later — the slower RELIANCE response can still resolve last and
+  // silently overwrite the headlines, sentiment, and "Synced ..." timestamp
+  // with data for the ticker the user already navigated away from, while
+  // the active-ticker chip correctly still says TCS. Self-corrects only on
+  // the next poll tick. A sequence guard makes a stale response a no-op.
+  const headlinesRequestSeq = React.useRef(0);
+
   // Fetch and parse headlines utility wrapper
   const refreshHeadlines = useCallback(async (options: FetchHeadlinesOptions = {}) => {
+    const mySeq = ++headlinesRequestSeq.current;
     setIsLoadingHeadlines(true);
     setError(null);
     try {
@@ -112,6 +126,8 @@ export const NewsPredictionsProvider: React.FC<NewsPredictionsProviderProps> = (
         limit: options.limit || 30,
         forceRefresh: options.forceRefresh
       });
+
+      if (headlinesRequestSeq.current !== mySeq) return;
 
       setAllHeadlines(parsed);
 
@@ -126,10 +142,11 @@ export const NewsPredictionsProvider: React.FC<NewsPredictionsProviderProps> = (
         second: '2-digit'
       }));
     } catch (err: any) {
+      if (headlinesRequestSeq.current !== mySeq) return;
       console.error('Failed to load global financial headlines:', err);
       setError(err?.message || 'Failed to fetch global financial headlines');
     } finally {
-      setIsLoadingHeadlines(false);
+      if (headlinesRequestSeq.current === mySeq) setIsLoadingHeadlines(false);
     }
   }, [activeCategory, selectedBseSymbol]);
 
@@ -138,14 +155,24 @@ export const NewsPredictionsProvider: React.FC<NewsPredictionsProviderProps> = (
     setIsLoadingPredictions(true);
     try {
       const res = await fetch('/api/stock-predictions');
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && Array.isArray(data.predictions)) {
-          setPredictions(data.predictions);
-        }
+      if (!res.ok) {
+        setError(`Could not fetch AI stock predictions (server returned ${res.status}).`);
+        return;
+      }
+      const data = await res.json();
+      if (data.success && Array.isArray(data.predictions)) {
+        setPredictions(data.predictions);
+      } else {
+        // Previously silent: a 200 response with `success: false` (or a
+        // malformed shape) left `predictions` at its previous/empty value
+        // with zero indication anything went wrong — the empty-predictions
+        // UI then told the user "No predictions matched your current
+        // search filters" for what was actually a server-side failure.
+        setError('AI stock predictions are temporarily unavailable.');
       }
     } catch (err: any) {
       console.warn('Could not load stock predictions in context:', err);
+      setError(err?.message || 'Could not fetch AI stock predictions.');
     } finally {
       setIsLoadingPredictions(false);
     }
