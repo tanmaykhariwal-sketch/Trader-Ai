@@ -1,14 +1,12 @@
 export type TradingMode = 'simple' | 'advanced';
 
-export type AppPage = 
-  | 'market-hub' 
-  | 'stock-studio' 
+export type AppPage =
+  | 'market-hub'
+  | 'stock-studio'
   | 'advanced-analytics'
   | 'news-predictions'
-  | 'portfolio' 
   | 'watchlist'
-  | 'journal' 
-  | 'risk-calculator' 
+  | 'risk-calculator'
   | 'market-clocks'
   | 'support';
 
@@ -240,62 +238,12 @@ export interface RiskCalculatorResult {
   potentialProfitAmount: number;
   riskRewardRatio: number; // e.g. 2.8
   isAcceptableRR: boolean;
+  // True when stop loss / target aren't on the correct sides of entry for a
+  // long (stopLoss < entry < target) — e.g. stop loss set ABOVE entry. The
+  // math still runs (Math.abs makes it produce a number either way) but the
+  // "risk"/"reward" labels would be describing a structurally backwards
+  // trade, not a real one.
+  isInvertedSetup: boolean;
 }
 
-export interface PurchasedHolding {
-  id: string;
-  symbol: string;
-  stockName: string;
-  purchasePrice: number;
-  quantity: number;
-  purchaseTime: string;
-  purchaseDate?: string;
-  currency: 'INR' | 'USD';
-  sellZone: string;
-  stopLoss: string;
-  probableTimeWindow: string;
-  targetPriceNum?: number;
-  stopLossPriceNum?: number;
-}
-
-export interface PriceAlert {
-  id: string;
-  holdingId: string;
-  symbol: string;
-  stockName: string;
-  alertType: 'TARGET_MET' | 'STOP_LOSS_HIT';
-  triggerPrice: number;
-  targetOrSlPrice: number;
-  purchasePrice: number;
-  quantity: number;
-  currency: 'INR' | 'USD';
-  timestamp: string;
-  message: string;
-  isRead?: boolean;
-}
-
-export interface JournalEntry {
-  id: string;
-  symbol: string;
-  stockName: string;
-  buyPrice: number;
-  sellPrice: number;
-  quantity: number;
-  pnl: number;
-  pnlPercent: number;
-  boughtAt?: string;
-  boughtDate?: string;
-  soldAt: string;
-  soldDate?: string;
-}
-
-export interface CapitalRecord {
-  id: string;
-  amount: number;
-  type: 'DEPOSIT' | 'SET';
-  timestamp: string;
-  date: string;
-  resultingCapital: number;
-  note?: string;
-}
 
