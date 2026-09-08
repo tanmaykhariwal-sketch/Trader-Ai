@@ -1,34 +1,22 @@
 import React, { useState, useMemo } from 'react';
-import { 
-  Star, 
-  Search, 
-  TrendingUp, 
-  TrendingDown, 
-  Plus, 
-  Trash2, 
-  ExternalLink, 
-  Briefcase, 
-  Eye, 
-  Activity, 
-  Check, 
-  ShoppingBag,
-  Bell,
+import {
+  Star,
+  Search,
+  Plus,
+  Eye,
+  Activity,
   ArrowUpRight,
-  ArrowDownRight,
-  Filter
+  ArrowDownRight
 } from 'lucide-react';
-import { MarketTicker, MarketSignal, PurchasedHolding, AppPage } from '../../types';
+import { MarketTicker, MarketSignal } from '../../types';
 
 interface WatchlistViewProps {
   watchlistSymbols: string[];
   onToggleWatchlist: (symbol: string) => void;
   tickers: MarketTicker[];
   signals: MarketSignal[];
-  purchasedHoldings: PurchasedHolding[];
   currency: 'INR' | 'USD';
   onNavigateToStudio: (symbol: string) => void;
-  onMarkAsBought: (signal: MarketSignal) => void;
-  onSelectPage?: (page: AppPage) => void;
 }
 
 export const WatchlistView: React.FC<WatchlistViewProps> = ({
@@ -36,23 +24,15 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
   onToggleWatchlist,
   tickers = [],
   signals = [],
-  purchasedHoldings = [],
   currency,
-  onNavigateToStudio,
-  onMarkAsBought,
-  onSelectPage
+  onNavigateToStudio
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterMode, setFilterMode] = useState<'ALL' | 'NOT_HOLDING' | 'GAINERS' | 'LOSERS'>('ALL');
+  const [filterMode, setFilterMode] = useState<'ALL' | 'GAINERS' | 'LOSERS'>('ALL');
   const [showAddModal, setShowAddModal] = useState(false);
   const [tickerAddQuery, setTickerAddQuery] = useState('');
 
   const currSymbol = currency === 'INR' ? '₹' : '$';
-
-  // Set of symbols currently in portfolio holdings
-  const holdingSymbolsSet = useMemo(() => {
-    return new Set(purchasedHoldings.map(h => h.symbol));
-  }, [purchasedHoldings]);
 
   // Combine ticker data for watchlisted items
   const watchlistedItems = useMemo(() => {
@@ -72,17 +52,13 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
       };
 
       const signal = signals.find(s => s.symbol === symbol);
-      const isHolding = holdingSymbolsSet.has(symbol);
-      const holding = purchasedHoldings.find(h => h.symbol === symbol);
 
       return {
         ...ticker,
-        signal,
-        isHolding,
-        holding
+        signal
       };
     });
-  }, [watchlistSymbols, tickers, signals, holdingSymbolsSet, purchasedHoldings]);
+  }, [watchlistSymbols, tickers, signals]);
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -96,7 +72,6 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
       }
 
       // Filter tabs
-      if (filterMode === 'NOT_HOLDING') return !item.isHolding;
       if (filterMode === 'GAINERS') return item.change >= 0;
       if (filterMode === 'LOSERS') return item.change < 0;
 
@@ -117,11 +92,11 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
     });
   }, [tickers, watchlistSymbols, tickerAddQuery]);
 
-  const notHoldingCount = watchlistedItems.filter(i => !i.isHolding).length;
+  const gainersCount = watchlistedItems.filter(i => i.change >= 0).length;
 
   return (
     <div className="space-y-5 animate-in fade-in duration-150">
-      
+
       {/* Header Banner */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-5 sm:p-6 shadow-xl relative overflow-hidden backdrop-blur-md">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -139,7 +114,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-1">
-                Track live real-time price action and opportunities for stocks you are monitoring before entering positions.
+                Track live real-time price action and AI signals for stocks you are monitoring.
               </p>
             </div>
           </div>
@@ -156,22 +131,15 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
         </div>
 
         {/* Quick Highlights Row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-5 pt-4 border-t border-slate-800/80 text-xs">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mt-5 pt-4 border-t border-slate-800/80 text-xs">
           <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60">
             <span className="text-[10px] text-slate-400 font-mono uppercase block">Total Monitored</span>
             <span className="text-base font-bold font-mono text-white mt-0.5 block">{watchlistSymbols.length} Tickers</span>
           </div>
 
           <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60">
-            <span className="text-[10px] text-slate-400 font-mono uppercase block">Not Currently Held</span>
-            <span className="text-base font-bold font-mono text-amber-300 mt-0.5 block">{notHoldingCount} Potential Trades</span>
-          </div>
-
-          <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60">
-            <span className="text-[10px] text-slate-400 font-mono uppercase block">In Portfolio</span>
-            <span className="text-base font-bold font-mono text-emerald-400 mt-0.5 block">
-              {watchlistedItems.length - notHoldingCount} Active Positions
-            </span>
+            <span className="text-[10px] text-slate-400 font-mono uppercase block">Gainers Today</span>
+            <span className="text-base font-bold font-mono text-emerald-400 mt-0.5 block">{gainersCount} of {watchlistedItems.length}</span>
           </div>
 
           <div className="bg-slate-950/60 p-3 rounded-xl border border-slate-800/60">
@@ -183,7 +151,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
 
       {/* Filter and Search Bar */}
       <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-md">
-        
+
         {/* Search */}
         <div className="relative w-full sm:w-72">
           <Search className="h-4 w-4 absolute left-3 top-2.5 text-slate-400" />
@@ -200,7 +168,6 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
         <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 text-xs">
           {[
             { id: 'ALL', label: `All (${watchlistedItems.length})` },
-            { id: 'NOT_HOLDING', label: `Watching / Not Held (${notHoldingCount})` },
             { id: 'GAINERS', label: 'Gainers 🟢' },
             { id: 'LOSERS', label: 'Losers 🔴' }
           ].map(tab => (
@@ -231,7 +198,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
             </h3>
             <p className="text-xs text-slate-400">
               {watchlistSymbols.length === 0
-                ? 'Bookmark tickers from the Market Hub, Stock Studio, or click below to start tracking price action for stocks you want to buy.'
+                ? 'Bookmark tickers from the Market Hub, Stock Studio, or click below to start tracking price action for stocks you are interested in.'
                 : 'Try adjusting your search query or reset the filter to view all bookmarked stocks.'}
             </p>
           </div>
@@ -268,16 +235,6 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
                       <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">
                         {item.exchange}
                       </span>
-                      {item.isHolding ? (
-                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
-                          <Briefcase className="h-2.5 w-2.5" />
-                          <span>In Portfolio</span>
-                        </span>
-                      ) : (
-                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30">
-                          Watching
-                        </span>
-                      )}
                     </div>
                     <div className="text-xs text-slate-400 font-medium truncate max-w-[200px]">
                       {item.name}
@@ -324,7 +281,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
                     <span>H: {currSymbol}{item.dayHigh.toLocaleString()}</span>
                   </div>
                   <div className="h-1.5 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800">
-                    <div 
+                    <div
                       className={`h-full rounded-full ${isPositive ? 'bg-emerald-500' : 'bg-rose-500'}`}
                       style={{ width: `${currentPositionInDay}%` }}
                     />
@@ -348,41 +305,15 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
                   </div>
                 )}
 
-                {/* Action Buttons */}
-                <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-800/80">
+                {/* Action Button */}
+                <div className="pt-1 border-t border-slate-800/80">
                   <button
                     onClick={() => onNavigateToStudio(item.symbol)}
-                    className="py-1.5 px-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
+                    className="w-full py-1.5 px-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition-colors flex items-center justify-center space-x-1.5 cursor-pointer"
                   >
-                    <Activity className="h-3.5 w-3.5 text-cyan-400" />
-                    <span>View Chart</span>
+                    {item.signal ? <Activity className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                    <span>{item.signal ? 'View Chart & Signal' : 'Inspect in Stock Studio'}</span>
                   </button>
-
-                  {item.isHolding ? (
-                    <button
-                      onClick={() => onSelectPage && onSelectPage('portfolio')}
-                      className="py-1.5 px-2.5 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold transition-colors flex items-center justify-center space-x-1 cursor-pointer"
-                    >
-                      <Briefcase className="h-3.5 w-3.5" />
-                      <span>In Portfolio</span>
-                    </button>
-                  ) : item.signal ? (
-                    <button
-                      onClick={() => onMarkAsBought(item.signal!)}
-                      className="py-1.5 px-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-extrabold transition-colors flex items-center justify-center space-x-1 cursor-pointer shadow-md shadow-emerald-500/20"
-                    >
-                      <ShoppingBag className="h-3.5 w-3.5" />
-                      <span>Buy Stock</span>
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => onNavigateToStudio(item.symbol)}
-                      className="py-1.5 px-2.5 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-300 border border-cyan-500/40 text-xs font-bold transition-colors flex items-center justify-center space-x-1 cursor-pointer"
-                    >
-                      <Eye className="h-3.5 w-3.5" />
-                      <span>Inspect</span>
-                    </button>
-                  )}
                 </div>
               </div>
             );
@@ -399,7 +330,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
                 <Star className="h-5 w-5 text-amber-400 fill-amber-400" />
                 <h3 className="text-sm font-bold text-white">Add Ticker to Watchlist</h3>
               </div>
-              <button 
+              <button
                 onClick={() => setShowAddModal(false)}
                 className="text-slate-400 hover:text-white text-sm"
               >
