@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { RiskCalculatorInput, RiskCalculatorResult, MarketSignal } from '../types';
 import { Calculator, X, ShieldCheck, AlertTriangle, CheckCircle2, DollarSign, IndianRupee } from 'lucide-react';
+import { calculatePositionSize } from '../utils/positionSizing';
+import { DecimalInput } from './DecimalInput';
 
 interface PositionCalculatorModalProps {
   isOpen: boolean;
@@ -23,32 +25,41 @@ export const PositionCalculatorModal: React.FC<PositionCalculatorModalProps> = (
   const [targetPrice, setTargetPrice] = useState<number>(3065);
 
   useEffect(() => {
-    if (initialSignal) {
-      setEntryPrice(initialSignal.currentPrice);
-      // parse numeric stop loss if possible
-      const slMatch = initialSignal.stopLoss.match(/[\d,.]+/);
-      if (slMatch) {
-        setStopLossPrice(parseFloat(slMatch[0].replace(/,/g, '')));
-      }
-      // parse numeric target if possible
-      const targetMatch = initialSignal.sellZone.match(/[\d,.]+/);
-      if (targetMatch) {
-        setTargetPrice(parseFloat(targetMatch[0].replace(/,/g, '')));
-      }
+    // Keyed on `isOpen` too, not just `initialSignal`: App.tsx hands this
+    // modal the same signal object out of `savedSignals` every time (stable
+    // identity), so re-opening the calculator for the SAME stock after
+    // editing values didn't re-run this effect at all — confirmed live,
+    // edited Entry/SL for RELIANCE, closed, reopened for RELIANCE again, and
+    // saw the previous session's edited numbers presented as if they were
+    // the signal's real values.
+    if (!isOpen || !initialSignal) return;
+    setEntryPrice(initialSignal.currentPrice);
+    // parse numeric stop loss if possible
+    const slMatch = initialSignal.stopLoss.match(/[\d,.]+/);
+    if (slMatch) {
+      setStopLossPrice(parseFloat(slMatch[0].replace(/,/g, '')));
     }
-  }, [initialSignal]);
+    // parse numeric target if possible — sellZone is formatted as
+    // "T1: ₹1,830 | T2: ₹1,850"; a bare digit-run match would also match
+    // the "1" inside the "T1" label itself, so extract by label instead.
+    const targetMatch = initialSignal.sellZone.match(/T1:\s*₹?([\d,]+(\.\d+)?)/);
+    if (targetMatch) {
+      setTargetPrice(parseFloat(targetMatch[1].replace(/,/g, '')));
+    }
+  }, [initialSignal, isOpen]);
 
   if (!isOpen) return null;
 
-  // Calculation Logic
-  const maxRiskAmount = (capital * riskPercent) / 100;
-  const perShareRisk = Math.abs(entryPrice - stopLossPrice) || 1;
-  const positionSizeQty = Math.floor(maxRiskAmount / perShareRisk);
-  const totalPositionValue = positionSizeQty * entryPrice;
-  const potentialProfitPerShare = Math.abs(targetPrice - entryPrice);
-  const potentialProfitAmount = positionSizeQty * potentialProfitPerShare;
-  const riskRewardRatio = Number((potentialProfitPerShare / perShareRisk).toFixed(2));
-  const isAcceptableRR = riskRewardRatio >= 2.0;
+  // Calculation Logic (shared with RiskCalculatorView via positionSizing.ts)
+  const {
+    maxRiskAmount,
+    positionSizeQty,
+    totalPositionValue,
+    potentialProfitAmount,
+    riskRewardRatio,
+    isAcceptableRR,
+    isInvertedSetup,
+  } = calculatePositionSize({ capital, currency, riskPercentage: riskPercent, entryPrice, stopLossPrice, targetPrice });
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md animate-in fade-in">
@@ -91,13 +102,14 @@ export const PositionCalculatorModal: React.FC<PositionCalculatorModalProps> = (
               Risk Per Trade (% of Capital):
             </label>
             <div className="flex items-center space-x-2">
-              <input
-                type="number"
-                step="0.1"
-                min="0.1"
-                max="5.0"
+              <DecimalInput
                 value={riskPercent}
-                onChange={(e) => setRiskPercent(parseFloat(e.target.value) || 1)}
+                // `v || 1` used to treat a legitimately typed 0 as falsy and
+                // silently swap in 1, desyncing the displayed "0" from the
+                // real state calculatePositionSize used — calculatePositionSize
+                // already handles 0% risk cleanly (0 max risk, 0 shares), so
+                // there's no need to clamp it away from the user.
+                onChange={setRiskPercent}
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-emerald-500"
               />
               <span className="text-xs font-bold text-slate-400">%</span>
@@ -108,11 +120,9 @@ export const PositionCalculatorModal: React.FC<PositionCalculatorModalProps> = (
             <label className="text-xs font-semibold text-slate-300 block mb-1">
               Entry Price ({currency}):
             </label>
-            <input
-              type="number"
-              step="0.05"
+            <DecimalInput
               value={entryPrice}
-              onChange={(e) => setEntryPrice(parseFloat(e.target.value) || 0)}
+              onChange={setEntryPrice}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-white focus:outline-none focus:border-emerald-500"
             />
           </div>
@@ -121,11 +131,9 @@ export const PositionCalculatorModal: React.FC<PositionCalculatorModalProps> = (
             <label className="text-xs font-semibold text-slate-300 block mb-1">
               Stop Loss Price ({currency}):
             </label>
-            <input
-              type="number"
-              step="0.05"
+            <DecimalInput
               value={stopLossPrice}
-              onChange={(e) => setStopLossPrice(parseFloat(e.target.value) || 0)}
+              onChange={setStopLossPrice}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-rose-300 focus:outline-none focus:border-rose-500"
             />
           </div>
@@ -134,16 +142,23 @@ export const PositionCalculatorModal: React.FC<PositionCalculatorModalProps> = (
             <label className="text-xs font-semibold text-slate-300 block mb-1">
               Target Price / Take Profit ({currency}):
             </label>
-            <input
-              type="number"
-              step="0.05"
+            <DecimalInput
               value={targetPrice}
-              onChange={(e) => setTargetPrice(parseFloat(e.target.value) || 0)}
+              onChange={setTargetPrice}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-cyan-300 focus:outline-none focus:border-cyan-500"
             />
           </div>
 
         </div>
+
+        {isInvertedSetup && (
+          <div className="mb-4 bg-rose-950/30 border border-rose-500/40 p-3 rounded-xl flex items-start space-x-2.5 text-xs text-rose-200">
+            <AlertTriangle className="h-4 w-4 text-rose-400 flex-shrink-0 mt-0.5" />
+            <span>
+              <strong>Invalid Setup:</strong> for a long position, Stop Loss must be below Entry, and Entry must be below Target.
+            </span>
+          </div>
+        )}
 
         {/* Calculated Results Panel */}
         <div className="bg-slate-950 rounded-xl p-4 border border-slate-800 space-y-3">
