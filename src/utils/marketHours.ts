@@ -49,22 +49,29 @@ export const BSE_HOLIDAYS: Record<string, string> = {
   '2025-11-05': 'Guru Nanak Jayanti',
   '2025-12-25': 'Christmas',
 
-  // 2026 Holidays
+  // 2026 Holidays — corrected 2026-09-04 after a real incident: the engine
+  // sat idle on a genuine trading day (Sep 4) because this list wrongly
+  // listed Janmashtami as a holiday. Cross-checked the ENTIRE 2026 list
+  // against a second real source (Zerodha's own official holiday calendar)
+  // rather than fixing just that one date — found the whole list had drifted
+  // (wrong dates on Holi/Bakri Id, a fabricated Ramzan Id entry, Milad-un-Nabi
+  // instead of the real Sep 14 Ganesh Chaturthi, missing Ram Navami/Mahavir
+  // Jayanti, an unconfirmed Nov 9 entry). Feb 15 (Mahashivratri) and Aug 15
+  // (Independence Day) are real observances but fall on a weekend in 2026 —
+  // already correctly closed via isWeekend, so deliberately not double-listed
+  // here as separate "holidays."
   '2026-01-26': 'Republic Day',
-  '2026-02-16': 'Mahashivratri',
-  '2026-03-04': 'Holi',
-  '2026-03-20': 'Id-Ul-Fitr (Ramzan Id)',
+  '2026-03-03': 'Holi',
+  '2026-03-26': 'Shri Ram Navami',
+  '2026-03-31': 'Shri Mahavir Jayanti',
   '2026-04-03': 'Good Friday',
   '2026-04-14': 'Dr. Baba Saheb Ambedkar Jayanti',
   '2026-05-01': 'Maharashtra Day',
-  '2026-05-27': 'Bakri Id / Eid-ul-Adha',
+  '2026-05-28': 'Bakri Id / Eid-ul-Adha',
   '2026-06-26': 'Muharram',
-  '2026-08-15': 'Independence Day',
-  '2026-09-04': 'Janmashtami',
-  '2026-09-15': 'Milad-un-Nabi',
+  '2026-09-14': 'Ganesh Chaturthi',
   '2026-10-02': 'Mahatma Gandhi Jayanti',
   '2026-10-20': 'Dussehra',
-  '2026-11-09': 'Diwali Laxmi Pujan',
   '2026-11-10': 'Diwali Balipratipada',
   '2026-11-24': 'Guru Nanak Jayanti',
   '2026-12-25': 'Christmas',
@@ -126,7 +133,7 @@ export function getBseMarketStatus(targetDate: Date = new Date()): BseMarketStat
     statusLabel = 'Market Open (BSE Live)';
     badgeClass = 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40';
     nextSessionLabel = 'Continuous session closes today at 3:30 PM IST';
-    frozenNotice = 'Live trading active. Real-time rates synchronized with Google Finance.';
+    frozenNotice = 'Live trading active. Rates synchronized with Yahoo Finance (unofficial feed).';
   } else if (isPreMarket) {
     status = 'PRE_MARKET';
     statusLabel = 'BSE Pre-Market Order Matching';
