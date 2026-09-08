@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { 
-  Cpu, 
-  Sparkles, 
-  Search, 
+  Cpu,
+  Search,
   ShieldAlert, 
   Layers, 
   BarChart2, 
@@ -15,7 +14,7 @@ import {
   ChevronRight,
   Activity
 } from 'lucide-react';
-import { MarketTicker, MarketSignal, PurchasedHolding, AppPage } from '../../types';
+import { MarketTicker, MarketSignal, AppPage } from '../../types';
 import { ConfluenceMatrix } from '../ConfluenceMatrix';
 
 interface AdvancedAnalyticsViewProps {
@@ -40,8 +39,16 @@ export const AdvancedAnalyticsView: React.FC<AdvancedAnalyticsViewProps> = ({
   currency
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const activeSymbol = currentSignal?.symbol || selectedTicker.symbol;
-  const activeSignal = savedSignals.find(s => s.symbol === activeSymbol) || currentSignal;
+  // `selectedTicker` is what the user actually just clicked (App.tsx updates
+  // it unconditionally on every chip/ticker click); `currentSignal` is only
+  // updated when a saved signal exists for that click, so it can lag behind
+  // pointing at a totally different, previously-viewed stock. Trusting
+  // currentSignal.symbol here meant clicking any ticker without a generated
+  // signal (most of the 60-stock tape) did nothing visible at all — the
+  // header, chip highlight, and every panel below kept showing the old stock.
+  const activeSymbol = selectedTicker.symbol;
+  const activeSignal = savedSignals.find(s => s.symbol === activeSymbol)
+    || (currentSignal?.symbol === activeSymbol ? currentSignal : null);
 
   const currSymbol = currency === 'INR' ? '₹' : '$';
 
@@ -184,7 +191,7 @@ export const AdvancedAnalyticsView: React.FC<AdvancedAnalyticsViewProps> = ({
           {activeSignal.candlestickInsights && (
             <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl space-y-4">
               <div className="flex items-center space-x-2 text-purple-400 font-bold text-sm">
-                <Sparkles className="h-4 w-4" />
+                <Layers className="h-4 w-4" />
                 <span>Smart Money Concepts (SMC) & Institutional Order Flow for {activeSignal.symbol}</span>
               </div>
 
@@ -316,10 +323,17 @@ export const AdvancedAnalyticsView: React.FC<AdvancedAnalyticsViewProps> = ({
           <div className="h-12 w-12 rounded-2xl bg-purple-500/10 border border-purple-500/30 flex items-center justify-center mx-auto text-purple-400">
             <Cpu className="h-6 w-6" />
           </div>
-          <h3 className="text-white font-bold text-base">Select a Stock to View Advanced Data</h3>
+          <h3 className="text-white font-bold text-base">No AI Signal Generated Yet for {activeSymbol}</h3>
           <p className="text-xs text-slate-400 max-w-md mx-auto">
-            Choose any company from the top chips or the search bar to inspect deep quantitative indicators and SMC metrics.
+            This stock doesn't have a generated confluence signal yet. Head to Stock Studio to run an analysis for {activeSymbol}, or pick a different stock above.
           </p>
+          <button
+            onClick={() => onSelectPage('stock-studio')}
+            className="px-4 py-2 rounded-xl bg-purple-500 hover:bg-purple-400 text-slate-950 font-bold text-xs transition-all inline-flex items-center space-x-1.5 cursor-pointer"
+          >
+            <Activity className="h-3.5 w-3.5" />
+            <span>Analyze {activeSymbol} in Stock Studio</span>
+          </button>
         </div>
       )}
     </div>
