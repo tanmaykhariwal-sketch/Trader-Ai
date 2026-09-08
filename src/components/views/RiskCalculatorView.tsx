@@ -1,40 +1,59 @@
-import React, { useState, useEffect } from 'react';
-import { 
-  Calculator, 
-  ShieldCheck, 
-  AlertTriangle, 
-  TrendingUp, 
-  DollarSign, 
-  Percent, 
-  ArrowRight, 
-  CheckCircle2, 
-  Sparkles,
-  Zap
+import React, { useState } from 'react';
+import {
+  Calculator,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 import { MarketSignal, MarketTicker } from '../../types';
+import { calculatePositionSize } from '../../utils/positionSizing';
+import { DecimalInput } from '../DecimalInput';
+
+// Matches the multipliers this app has used elsewhere for a fallback
+// stop-loss/target when a signal's own text can't be parsed for a number.
+const FALLBACK_STOP_LOSS_MULTIPLIER = 0.98;
+const FALLBACK_TARGET_MULTIPLIER = 1.035;
 
 interface RiskCalculatorViewProps {
-  capital: number;
   currency: 'INR' | 'USD';
   signals: MarketSignal[];
   tickers: MarketTicker[];
   onNavigateToStudio: (symbol: string) => void;
-  onOpenBuyModal?: (signal: MarketSignal) => void;
 }
 
 export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
-  capital,
   currency,
   signals,
   tickers,
-  onNavigateToStudio,
-  onOpenBuyModal
+  onNavigateToStudio
 }) => {
-  const [selectedStock, setSelectedStock] = useState<string>(signals[0]?.symbol || 'RELIANCE');
+  // Derives entry/SL/target from a real signal — shared by the initial state
+  // (below) and handleSelectSignal, so the very first render doesn't claim a
+  // stock is selected (the RELIANCE chip highlighted cyan) while showing
+  // unrelated hardcoded placeholder numbers (1315.60/1295/1350) instead of
+  // that stock's real values.
+  const deriveLevelsFromSignal = (sig: MarketSignal) => {
+    const slMatch = sig.stopLoss.match(/[\d,]+(\.\d+)?/);
+    const stopLoss = slMatch
+      ? parseFloat(slMatch[0].replace(/,/g, ''))
+      : +(sig.currentPrice * FALLBACK_STOP_LOSS_MULTIPLIER).toFixed(2);
+
+    const t1Match = sig.sellZone.match(/T1:\s*₹?([\d,]+(\.\d+)?)/);
+    const target = t1Match
+      ? parseFloat(t1Match[1].replace(/,/g, ''))
+      : +(sig.currentPrice * FALLBACK_TARGET_MULTIPLIER).toFixed(2);
+
+    return { entry: sig.currentPrice, stopLoss, target };
+  };
+
+  const initialSignal = signals[0];
+  const initialLevels = initialSignal ? deriveLevelsFromSignal(initialSignal) : null;
+
+  const [selectedStock, setSelectedStock] = useState<string>(initialSignal?.symbol || 'RELIANCE');
+  const [capital, setCapital] = useState<number>(100000);
   const [riskPercent, setRiskPercent] = useState<number>(1.5);
-  const [entryPrice, setEntryPrice] = useState<number>(1315.60);
-  const [stopLossPrice, setStopLossPrice] = useState<number>(1295.00);
-  const [targetPrice, setTargetPrice] = useState<number>(1350.00);
+  const [entryPrice, setEntryPrice] = useState<number>(initialLevels?.entry ?? 1315.60);
+  const [stopLossPrice, setStopLossPrice] = useState<number>(initialLevels?.stopLoss ?? 1295.00);
+  const [targetPrice, setTargetPrice] = useState<number>(initialLevels?.target ?? 1350.00);
 
   const currSymbol = currency === 'INR' ? '₹' : '$';
 
@@ -43,36 +62,25 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
     setSelectedStock(sym);
     const sig = signals.find(s => s.symbol === sym);
     if (sig) {
-      setEntryPrice(sig.currentPrice);
-      
-      // Parse stop loss
-      const slMatch = sig.stopLoss.match(/[\d,]+(\.\d+)?/);
-      if (slMatch) {
-        setStopLossPrice(parseFloat(slMatch[0].replace(/,/g, '')));
-      } else {
-        setStopLossPrice(+(sig.currentPrice * 0.985).toFixed(2));
-      }
-
-      // Parse target 1
-      const t1Match = sig.sellZone.match(/T1:\s*₹?([\d,]+(\.\d+)?)/);
-      if (t1Match) {
-        setTargetPrice(parseFloat(t1Match[1].replace(/,/g, '')));
-      } else {
-        setTargetPrice(+(sig.currentPrice * 1.035).toFixed(2));
-      }
+      const levels = deriveLevelsFromSignal(sig);
+      setEntryPrice(levels.entry);
+      setStopLossPrice(levels.stopLoss);
+      setTargetPrice(levels.target);
     }
   };
 
-  // Perform Calculations
-  const maxRiskAmount = (capital * (riskPercent / 100));
-  const perShareRisk = Math.max(0.1, entryPrice - stopLossPrice);
-  const perShareGain = Math.max(0, targetPrice - entryPrice);
-
-  // Position quantity based strictly on max allowable loss
-  const calculatedShares = perShareRisk > 0 ? Math.floor(maxRiskAmount / perShareRisk) : 0;
-  const totalPositionCost = calculatedShares * entryPrice;
-  const totalPotentialProfit = calculatedShares * perShareGain;
-  const riskRewardRatio = perShareRisk > 0 ? (perShareGain / perShareRisk).toFixed(2) : '0.00';
+  // Perform Calculations (shared with PositionCalculatorModal via positionSizing.ts)
+  const {
+    maxRiskAmount,
+    perShareRisk,
+    positionSizeQty: calculatedShares,
+    totalPositionValue: totalPositionCost,
+    potentialProfitAmount: totalPotentialProfit,
+    riskRewardRatio: riskRewardRatioNum,
+    isInvertedSetup,
+  } = calculatePositionSize({ capital, currency, riskPercentage: riskPercent, entryPrice, stopLossPrice, targetPrice });
+  const perShareGain = Math.abs(targetPrice - entryPrice);
+  const riskRewardRatio = riskRewardRatioNum.toFixed(2);
   const capitalExposurePercent = capital > 0 ? ((totalPositionCost / capital) * 100).toFixed(1) : '0.0';
 
   const isHighExposure = totalPositionCost > capital;
@@ -98,9 +106,14 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
           </div>
         </div>
 
-        <div className="bg-slate-950/80 px-4 py-2 rounded-xl border border-slate-800 flex items-center space-x-3 text-xs font-mono">
-          <span className="text-slate-400">Total Capital:</span>
-          <span className="text-white font-extrabold text-sm">{currSymbol}{capital.toLocaleString()}</span>
+        <div className="bg-slate-950/80 px-4 py-2 rounded-xl border border-slate-800 flex items-center space-x-2 text-xs font-mono">
+          <span className="text-slate-400">Account Capital:</span>
+          <span className="text-white font-extrabold">{currSymbol}</span>
+          <DecimalInput
+            value={capital}
+            onChange={setCapital}
+            className="w-28 bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-sm text-white font-mono font-extrabold focus:outline-none focus:border-cyan-500"
+          />
         </div>
       </div>
 
@@ -143,8 +156,8 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
               <label className="font-semibold text-slate-300">Max Portfolio Risk %</label>
               <span className="font-mono text-cyan-400 font-bold">{riskPercent}% of Capital</span>
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              {[0.5, 1.0, 1.5, 2.0, 3.0].slice(0, 4).map(pct => (
+            <div className="grid grid-cols-5 gap-2">
+              {[0.5, 1.0, 1.5, 2.0, 3.0].map(pct => (
                 <button
                   key={pct}
                   type="button"
@@ -166,11 +179,9 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
             <label className="text-xs font-semibold text-slate-300 block mb-1">
               Planned Entry Price ({currSymbol})
             </label>
-            <input
-              type="number"
-              step="any"
+            <DecimalInput
               value={entryPrice}
-              onChange={e => setEntryPrice(parseFloat(e.target.value) || 0)}
+              onChange={setEntryPrice}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-sm text-white font-mono font-bold focus:outline-none focus:border-cyan-500"
             />
           </div>
@@ -180,11 +191,9 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
             <label className="text-xs font-semibold text-rose-400 block mb-1">
               Protective Stop Loss Price ({currSymbol})
             </label>
-            <input
-              type="number"
-              step="any"
+            <DecimalInput
               value={stopLossPrice}
-              onChange={e => setStopLossPrice(parseFloat(e.target.value) || 0)}
+              onChange={setStopLossPrice}
               className="w-full bg-slate-950 border border-rose-900/60 rounded-xl px-3.5 py-2 text-sm text-rose-300 font-mono font-bold focus:outline-none focus:border-rose-500"
             />
             <span className="text-[10px] text-slate-500 font-mono block mt-1">
@@ -197,11 +206,9 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
             <label className="text-xs font-semibold text-emerald-400 block mb-1">
               Advisable Target Sell Price ({currSymbol})
             </label>
-            <input
-              type="number"
-              step="any"
+            <DecimalInput
               value={targetPrice}
-              onChange={e => setTargetPrice(parseFloat(e.target.value) || 0)}
+              onChange={setTargetPrice}
               className="w-full bg-slate-950 border border-emerald-900/60 rounded-xl px-3.5 py-2 text-sm text-emerald-300 font-mono font-bold focus:outline-none focus:border-emerald-500"
             />
             <span className="text-[10px] text-slate-500 font-mono block mt-1">
@@ -286,6 +293,18 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
               </div>
             </div>
 
+            {/* Inverted setup warning — stop loss/target on the wrong side of
+                entry for a long produces a confident-looking positive R:R
+                on a structurally guaranteed-loss trade if left unflagged. */}
+            {isInvertedSetup && (
+              <div className="bg-rose-950/30 border border-rose-500/40 p-3.5 rounded-xl flex items-start space-x-2.5 text-xs text-rose-200">
+                <AlertTriangle className="h-5 w-5 text-rose-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <strong>Invalid Setup:</strong> for a long position, Stop Loss must be below Entry, and Entry must be below Target. Check your three prices — this combination doesn't describe a real trade.
+                </div>
+              </div>
+            )}
+
             {/* High Exposure Warning if applicable */}
             {isHighExposure && (
               <div className="bg-amber-950/30 border border-amber-500/40 p-3.5 rounded-xl flex items-start space-x-2.5 text-xs text-amber-200">
@@ -304,19 +323,6 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
               >
                 Inspect {selectedStock} Candlestick Chart
               </button>
-
-              {onOpenBuyModal && (() => {
-                const activeSig = signals.find(s => s.symbol === selectedStock) || signals[0];
-                return (
-                  <button
-                    onClick={() => onOpenBuyModal(activeSig)}
-                    className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-1.5"
-                  >
-                    <CheckCircle2 className="h-4 w-4" />
-                    <span>Log {calculatedShares} Shares in Portfolio</span>
-                  </button>
-                );
-              })()}
             </div>
           </div>
         </div>
