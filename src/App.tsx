@@ -9,27 +9,56 @@ import { MarketTickerBar } from './components/MarketTickerBar';
 import { BeginnerSummaryView } from './components/BeginnerSummaryView';
 import { StockStudioView } from './components/views/StockStudioView';
 import { AdvancedAnalyticsView } from './components/views/AdvancedAnalyticsView';
-import { PortfolioView } from './components/views/PortfolioView';
-import { JournalView } from './components/views/JournalView';
 import { RiskCalculatorView } from './components/views/RiskCalculatorView';
 import { MarketClocksView } from './components/views/MarketClocksView';
 import { WatchlistView } from './components/views/WatchlistView';
 import { SupportView } from './components/views/SupportView';
 import { NewsPredictionsView } from './components/views/NewsPredictionsView';
 
-import { MarkAsBoughtModal } from './components/MarkAsBoughtModal';
-import { MarkAsSoldModal } from './components/MarkAsSoldModal';
 import { PositionCalculatorModal } from './components/PositionCalculatorModal';
 import { MiniAssistant } from './components/MiniAssistant';
-import { PriceAlertToast } from './components/PriceAlertToast';
 
-import { INITIAL_TICKERS, INITIAL_SAMPLE_SIGNALS, INITIAL_SAMPLE_JOURNAL_ENTRIES, generateCandlesticks } from './data/marketData';
-import { MarketTicker, MarketSignal, PurchasedHolding, JournalEntry, PriceAlert, AppPage, TradingMode, CapitalRecord, StockPrediction } from './types';
+import { INITIAL_TICKERS, INITIAL_SAMPLE_SIGNALS, generateCandlesticks } from './data/marketData';
+import { MarketTicker, MarketSignal, AppPage, TradingMode, StockPrediction, CandlestickData } from './types';
 import { getBseMarketStatus, BseMarketStatus } from './utils/marketHours';
+import { useAuth } from './context/AuthContext';
+import { LoginView } from './components/LoginView';
+import {
+  apiListWatchlist,
+  apiAddWatchlist,
+  apiRemoveWatchlist
+} from './utils/api';
+
+// Default account size the standalone calculators (Risk & Sizing page,
+// Position Calculator modal) start from — this app doesn't track a real
+// portfolio/capital balance, so there's no live number to default to.
+const DEFAULT_CALCULATOR_CAPITAL = 100000;
+
+// Mirrors the AppPage union in types.ts — TS types don't exist at runtime,
+// so a real value read back from localStorage needs a real array to
+// validate against, not just an `as AppPage` cast.
+const VALID_APP_PAGES: AppPage[] = [
+  'market-hub', 'stock-studio', 'advanced-analytics', 'news-predictions',
+  'watchlist', 'risk-calculator', 'market-clocks', 'support'
+];
 
 export default function App() {
-  // Page Navigation State
-  const [activePage, setActivePage] = useState<AppPage>('market-hub');
+  const { user, isLoading: isAuthLoading, logout } = useAuth();
+
+  // Page Navigation State — per explicit request, a browser refresh restores
+  // whichever page the user was actually on instead of resetting to the
+  // default. Validated against the real set of pages (not just trusted as a
+  // string) so a stale/corrupted localStorage value from an older build
+  // (e.g. a page that no longer exists) can't land activePage in a state
+  // nothing renders for.
+  const [activePage, setActivePage] = useState<AppPage>(() => {
+    try {
+      const saved = localStorage.getItem('trader_ai_active_page');
+      return VALID_APP_PAGES.includes(saved as AppPage) ? (saved as AppPage) : 'market-hub';
+    } catch {
+      return 'market-hub';
+    }
+  });
 
   // Viewport scroll ref for independent page scrolling
   const mainScrollContainerRef = useRef<HTMLDivElement>(null);
@@ -56,78 +85,6 @@ export default function App() {
       localStorage.setItem('trader_ai_trading_mode', nextMode);
       return nextMode;
     });
-  }, []);
-
-  // Account Capital state (defaults strictly to 0 for new user)
-  const [capital, setCapital] = useState<number>(() => {
-    try {
-      const saved = localStorage.getItem('trader_ai_capital');
-      if (saved !== null) {
-        const parsed = parseFloat(saved);
-        if (!isNaN(parsed) && parsed > 0 && parsed !== 500000) return parsed;
-      }
-      return 0;
-    } catch {
-      return 0;
-    }
-  });
-
-  // Capital Deposit History Records state
-  const [capitalRecords, setCapitalRecords] = useState<CapitalRecord[]>(() => {
-    try {
-      const saved = localStorage.getItem('trader_ai_capital_records');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  const handleAddCapital = useCallback((amountToAdd: number, note?: string) => {
-    setCapital(prev => {
-      const nextCap = Math.max(0, prev + amountToAdd);
-      localStorage.setItem('trader_ai_capital', nextCap.toString());
-
-      const newRecord: CapitalRecord = {
-        id: 'cap-' + Date.now(),
-        amount: amountToAdd,
-        type: 'DEPOSIT',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-        resultingCapital: nextCap,
-        note: note || 'Capital Deposit'
-      };
-
-      setCapitalRecords(prevRecs => {
-        const updated = [newRecord, ...prevRecs];
-        localStorage.setItem('trader_ai_capital_records', JSON.stringify(updated));
-        return updated;
-      });
-
-      return nextCap;
-    });
-  }, []);
-
-  const updateCapital = useCallback((newCap: number) => {
-    const validCap = Math.max(0, newCap);
-    setCapital(validCap);
-    localStorage.setItem('trader_ai_capital', validCap.toString());
-
-    if (validCap > 0) {
-      const newRecord: CapitalRecord = {
-        id: 'cap-' + Date.now(),
-        amount: validCap,
-        type: 'SET',
-        timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        date: new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-        resultingCapital: validCap,
-        note: 'Capital Balance Set'
-      };
-      setCapitalRecords(prevRecs => {
-        const updated = [newRecord, ...prevRecs];
-        localStorage.setItem('trader_ai_capital_records', JSON.stringify(updated));
-        return updated;
-      });
-    }
   }, []);
 
   const [currency, setCurrency] = useState<'INR' | 'USD'>('INR');
@@ -166,113 +123,88 @@ export default function App() {
   const [savedSignals, setSavedSignals] = useState<MarketSignal[]>(INITIAL_SAMPLE_SIGNALS);
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  // Guards handleGenerateSignal against out-of-order responses: clicking
+  // timeframe/risk buttons in quick succession fires overlapping /api/analyze
+  // requests, and Gemini's latency varies enough that an earlier click's
+  // response can resolve AFTER a later click's — confirmed live (a slow
+  // first request for one timeframe landed 4s after a fast second request
+  // for a different one, and silently overwrote it, leaving the chart
+  // showing the FIRST timeframe's data while the button/header claimed the
+  // second). Only the response matching the most recently issued request
+  // is applied; older ones are discarded on arrival.
+  const signalRequestSeq = useRef(0);
+  // Same idea, for handleSearchCustom below.
+  const searchCustomSeq = useRef(0);
+  // Guards against a genuinely out-of-order network response (a slow poll
+  // resolving after a faster manual refresh) reverting tickers/signals/alerts
+  // to stale prices.
+  const quotesFetchSeq = useRef(0);
 
-  // Purchased Holdings state (clean initial default: [])
-  const [purchasedHoldings, setPurchasedHoldings] = useState<PurchasedHolding[]>(() => {
+  // Watchlist — server-authoritative, loaded once a user is signed in.
+  const [watchlistSymbols, setWatchlistSymbols] = useState<string[]>([]);
+
+  const watchlistToggleSeq = useRef(0);
+  const handleToggleWatchlist = useCallback(async (symbol: string) => {
+    const mySeq = ++watchlistToggleSeq.current;
     try {
-      const saved = localStorage.getItem('alpha_trader_purchased_holdings');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
+      const next = watchlistSymbols.includes(symbol)
+        ? await apiRemoveWatchlist(symbol)
+        : await apiAddWatchlist(symbol);
+      // Two rapid toggles (add then remove, or vice versa) had no ordering
+      // guarantee — the older response could land after the newer one and
+      // overwrite watchlistSymbols with a stale list, showing the star/
+      // bookmark opposite to the user's actual last click.
+      if (watchlistToggleSeq.current !== mySeq) return;
+      setWatchlistSymbols(next);
+    } catch (err) {
+      console.error('Could not update watchlist:', err);
     }
-  });
+  }, [watchlistSymbols]);
 
-  // Watchlist Bookmarks state (clean initial default: [] wishlist zero)
-  const [watchlistSymbols, setWatchlistSymbols] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('alpha_trader_watchlist');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // If it matches legacy default sample watchlist, reset to clean 0
-          const isLegacyDefault = parsed.length === 4 && 
-            ['RELIANCE', 'TCS', 'HDFCBANK', 'INFY'].every(s => parsed.includes(s));
-          if (!isLegacyDefault) return parsed;
-        }
-      }
-      return [];
-    } catch {
-      return [];
+  // Load server-authoritative watchlist once signed in; clear it back out on
+  // logout so the next signed-in user never sees a flash of the previous
+  // session's data.
+  useEffect(() => {
+    if (!user) {
+      setWatchlistSymbols([]);
+      // MiniAssistant persists its chat log/unread-state under fixed,
+      // non-namespaced localStorage keys — without clearing them here, the
+      // next account to sign in on this browser/tab would see the previous
+      // account's entire conversation history.
+      localStorage.removeItem('trader_ai_assistant_messages');
+      localStorage.removeItem('trader_ai_assistant_last_read');
+      return;
     }
-  });
-
-  const handleToggleWatchlist = useCallback((symbol: string) => {
-    setWatchlistSymbols(prev => {
-      const next = prev.includes(symbol)
-        ? prev.filter(s => s !== symbol)
-        : [...prev, symbol];
-      localStorage.setItem('alpha_trader_watchlist', JSON.stringify(next));
-      return next;
-    });
-  }, []);
-
-  // Journal Trade Entries state (clean initial default: [])
-  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(() => {
-    try {
-      const saved = localStorage.getItem('alpha_trader_journal_entries');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Filter out any mock sample data from previous sessions
-          return parsed.filter((item: JournalEntry) => !item.id?.startsWith('j-hist-'));
-        }
-      }
-      return [];
-    } catch {
-      return [];
-    }
-  });
-
-  // Price Alert System State
-  const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>([]);
-  const [triggeredAlertKeys, setTriggeredAlertKeys] = useState<Set<string>>(new Set());
+    let cancelled = false;
+    apiListWatchlist().then(symbols => { if (!cancelled) setWatchlistSymbols(symbols); }).catch(err => console.error('Could not load watchlist:', err));
+    // A rapid logout->login-as-a-different-user shouldn't let the first
+    // user's slower-to-resolve fetch land after the second user's state is
+    // already loading — `cancelled` is what stops that stale write.
+    return () => { cancelled = true; };
+  }, [user]);
 
   // Live Market Feed and Status Tracking
   const [priceFlashMap, setPriceFlashMap] = useState<Record<string, 'up' | 'down'>>({});
 
   // Modal controls
-  const [showBuyModal, setShowBuyModal] = useState<boolean>(false);
-  const [buyModalSignal, setBuyModalSignal] = useState<MarketSignal | null>(null);
-
-  const [showSellModal, setShowSellModal] = useState<boolean>(false);
-  const [sellModalHolding, setSellModalHolding] = useState<PurchasedHolding | null>(null);
-
   const [showCalculatorModal, setShowCalculatorModal] = useState<boolean>(false);
   const [calculatorSignal, setCalculatorSignal] = useState<MarketSignal | null>(null);
-
-  // Helper function to parse numeric price
-  const parseNumericPrice = (raw: string | number | undefined, defaultVal: number): number => {
-    if (typeof raw === 'number' && !isNaN(raw) && raw > 0) return raw;
-    if (!raw) return defaultVal;
-    const numbers = String(raw).match(/[\d,]+(\.\d+)?/g);
-    if (numbers && numbers.length > 0) {
-      const parsed = parseFloat(numbers[0].replace(/,/g, ''));
-      if (!isNaN(parsed) && parsed > 0) return parsed;
-    }
-    return defaultVal;
-  };
-
-  // Price Alert Handlers
-  const handleDismissAlert = useCallback((id: string) => {
-    setPriceAlerts(prev => prev.filter(a => a.id !== id));
-  }, []);
-
-  const handleDismissAllAlerts = () => {
-    setPriceAlerts([]);
-  };
-
-  const handleSellHoldingByAlert = (alert: PriceAlert) => {
-    const targetHolding = purchasedHoldings.find(h => h.id === alert.holdingId || h.symbol === alert.symbol);
-    if (targetHolding) {
-      handleOpenSellModal(targetHolding);
-    }
-    handleDismissAlert(alert.id);
-  };
 
   // Reset scroll position on active page change (independent page scrolling)
   useEffect(() => {
     if (mainScrollContainerRef.current) {
       mainScrollContainerRef.current.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+    }
+  }, [activePage]);
+
+  // Persists whichever page is active so a refresh restores it — the actual
+  // read-back happens in activePage's own lazy initializer above.
+  useEffect(() => {
+    try {
+      localStorage.setItem('trader_ai_active_page', activePage);
+    } catch {
+      // localStorage can throw in a private-browsing/storage-disabled
+      // context — losing "remember my page" isn't worth crashing over.
     }
   }, [activePage]);
 
@@ -296,15 +228,25 @@ export default function App() {
       .catch(err => console.warn('Could not load stock predictions:', err));
   }, []);
 
-  // Live Exchange Rate Feed Engine & Official BSE Hours Enforcement
-  useEffect(() => {
-    let pollInterval: any = null;
+  // Manual "refresh rates" state — surfaced next to the clock so a user can
+  // force a quote sync without reloading the page or touching anything else.
+  const [isRefreshingRates, setIsRefreshingRates] = useState<boolean>(false);
 
-    const fetchLiveServerQuotes = async () => {
+  // Live Exchange Rate Feed Engine & Official BSE Hours Enforcement.
+  // Defined with useCallback (not just inside the effect) so the sidebar's
+  // manual refresh button can invoke the exact same rates-only sync the
+  // background poller uses — no other page data is touched.
+  const fetchLiveServerQuotes = useCallback(async (): Promise<boolean> => {
+      const mySeq = ++quotesFetchSeq.current;
       try {
         const res = await fetch('/api/live-quotes');
-        if (!res.ok) return;
+        if (!res.ok) return false;
         const data = await res.json();
+
+        // A newer call (interval tick or manual refresh) started while this
+        // one was in flight — applying this response now would revert
+        // tickers/signals/alerts to stale prices.
+        if (mySeq !== quotesFetchSeq.current) return false;
 
         if (data.success && Array.isArray(data.quotes)) {
           const currentBse = getBseMarketStatus();
@@ -312,156 +254,115 @@ export default function App() {
 
           const nextFlashes: Record<string, 'up' | 'down'> = {};
 
-          setTickers(prevTickers => {
-            const updatedTickers = prevTickers.map(t => {
-              const quote = data.quotes.find((q: any) => q.symbol === t.symbol);
-              if (quote) {
-                // Flash prices ONLY when market is open and there is an actual real price change
-                if (currentBse.isOpen) {
-                  if (quote.lastPrice > t.lastPrice) nextFlashes[t.symbol] = 'up';
-                  else if (quote.lastPrice < t.lastPrice) nextFlashes[t.symbol] = 'down';
-                }
+          // Kept as a pure computation — no setState calls inside this
+          // updater. React 18 StrictMode double-invokes state updaters in
+          // dev to catch exactly this kind of impurity: nesting other
+          // setState calls (alerts, flash timers) in here previously fired
+          // each of them twice per tick, producing duplicate toast alerts.
+          setTickers(prevTickers => prevTickers.map(t => {
+            const quote = data.quotes.find((q: any) => q.symbol === t.symbol);
+            if (quote) {
+              // Flash prices ONLY when market is open and there is an actual real price change
+              if (currentBse.isOpen) {
+                if (quote.lastPrice > t.lastPrice) nextFlashes[t.symbol] = 'up';
+                else if (quote.lastPrice < t.lastPrice) nextFlashes[t.symbol] = 'down';
+              }
 
+              return {
+                ...t,
+                lastPrice: quote.lastPrice,
+                change: quote.change,
+                changePercent: quote.changePercent,
+                dayHigh: Math.max(t.dayHigh, quote.dayHigh),
+                dayLow: Math.min(t.dayLow, quote.dayLow)
+              };
+            }
+            return t;
+          }));
+
+          // Trigger visual flashes only during open market hours
+          if (currentBse.isOpen && Object.keys(nextFlashes).length > 0) {
+            setPriceFlashMap(nextFlashes);
+            setTimeout(() => setPriceFlashMap({}), 700);
+          } else {
+            setPriceFlashMap({});
+          }
+
+          // Synchronize saved signals with authentic rates
+          setSavedSignals(prevSignals => {
+            return prevSignals.map(sig => {
+              const quote = data.quotes.find((q: any) => q.symbol === sig.symbol);
+              if (quote) {
+                const updatedPrice = quote.lastPrice;
+                const updatedChartData = sig.chartData ? [...sig.chartData] : [];
+                if (updatedChartData.length > 0) {
+                  const lastCandle = { ...updatedChartData[updatedChartData.length - 1] };
+                  lastCandle.close = updatedPrice;
+                  lastCandle.high = Math.max(lastCandle.high, updatedPrice);
+                  lastCandle.low = Math.min(lastCandle.low, updatedPrice);
+                  updatedChartData[updatedChartData.length - 1] = lastCandle;
+                }
                 return {
-                  ...t,
-                  lastPrice: quote.lastPrice,
-                  change: quote.change,
-                  changePercent: quote.changePercent,
-                  dayHigh: Math.max(t.dayHigh, quote.dayHigh),
-                  dayLow: Math.min(t.dayLow, quote.dayLow)
+                  ...sig,
+                  currentPrice: updatedPrice,
+                  chartData: updatedChartData
                 };
               }
-              return t;
+              return sig;
             });
-
-            // Trigger visual flashes only during open market hours
-            if (currentBse.isOpen && Object.keys(nextFlashes).length > 0) {
-              setPriceFlashMap(nextFlashes);
-              setTimeout(() => setPriceFlashMap({}), 700);
-            } else {
-              setPriceFlashMap({});
-            }
-
-            // Synchronize saved signals with authentic rates
-            setSavedSignals(prevSignals => {
-              return prevSignals.map(sig => {
-                const quote = data.quotes.find((q: any) => q.symbol === sig.symbol);
-                if (quote) {
-                  const updatedPrice = quote.lastPrice;
-                  const updatedChartData = sig.chartData ? [...sig.chartData] : [];
-                  if (updatedChartData.length > 0) {
-                    const lastCandle = { ...updatedChartData[updatedChartData.length - 1] };
-                    lastCandle.close = updatedPrice;
-                    lastCandle.high = Math.max(lastCandle.high, updatedPrice);
-                    lastCandle.low = Math.min(lastCandle.low, updatedPrice);
-                    updatedChartData[updatedChartData.length - 1] = lastCandle;
-                  }
-                  return {
-                    ...sig,
-                    currentPrice: updatedPrice,
-                    chartData: updatedChartData
-                  };
-                }
-                return sig;
-              });
-            });
-
-            // Synchronize currently active studio signal
-            setCurrentSignal(prev => {
-              if (!prev) return null;
-              const matchingQuote = data.quotes.find((q: any) => q.symbol === prev.symbol);
-              if (!matchingQuote) return prev;
-              const updatedPrice = matchingQuote.lastPrice;
-              const updatedChartData = prev.chartData ? [...prev.chartData] : [];
-              if (updatedChartData.length > 0) {
-                const lastCandle = { ...updatedChartData[updatedChartData.length - 1] };
-                lastCandle.close = updatedPrice;
-                lastCandle.high = Math.max(lastCandle.high, updatedPrice);
-                lastCandle.low = Math.min(lastCandle.low, updatedPrice);
-                updatedChartData[updatedChartData.length - 1] = lastCandle;
-              }
-              return {
-                ...prev,
-                currentPrice: updatedPrice,
-                chartData: updatedChartData
-              };
-            });
-
-            // Evaluate target profit and stop-loss levels for all active holdings
-            if (purchasedHoldings.length > 0) {
-              purchasedHoldings.forEach(holding => {
-                const quote = data.quotes.find((q: any) => q.symbol === holding.symbol);
-                const currentPrice = quote ? quote.lastPrice : holding.purchasePrice;
-
-                const targetPrice = holding.targetPriceNum || parseNumericPrice(holding.sellZone, holding.purchasePrice * 1.05);
-                const stopLossPrice = holding.stopLossPriceNum || parseNumericPrice(holding.stopLoss, holding.purchasePrice * 0.985);
-
-                // Target Met Alert
-                if (currentPrice >= targetPrice) {
-                  const alertKey = `target-${holding.id}-${Math.floor(targetPrice)}`;
-                  setTriggeredAlertKeys(prevKeys => {
-                    if (prevKeys.has(alertKey)) return prevKeys;
-                    const newKeys = new Set(prevKeys);
-                    newKeys.add(alertKey);
-
-                    const alertObj: PriceAlert = {
-                      id: `alert-target-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-                      holdingId: holding.id,
-                      symbol: holding.symbol,
-                      stockName: holding.stockName,
-                      alertType: 'TARGET_MET',
-                      triggerPrice: currentPrice,
-                      targetOrSlPrice: targetPrice,
-                      purchasePrice: holding.purchasePrice,
-                      quantity: holding.quantity,
-                      currency: holding.currency,
-                      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                      message: `${holding.stockName} (${holding.symbol}) reached target exit price!`
-                    };
-
-                    setPriceAlerts(curr => [alertObj, ...curr.filter(a => a.symbol !== holding.symbol || a.alertType !== 'TARGET_MET')]);
-                    return newKeys;
-                  });
-                }
-
-                // Stop Loss Hit Alert
-                if (currentPrice <= stopLossPrice) {
-                  const alertKey = `sl-${holding.id}-${Math.floor(stopLossPrice)}`;
-                  setTriggeredAlertKeys(prevKeys => {
-                    if (prevKeys.has(alertKey)) return prevKeys;
-                    const newKeys = new Set(prevKeys);
-                    newKeys.add(alertKey);
-
-                    const alertObj: PriceAlert = {
-                      id: `alert-sl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
-                      holdingId: holding.id,
-                      symbol: holding.symbol,
-                      stockName: holding.stockName,
-                      alertType: 'STOP_LOSS_HIT',
-                      triggerPrice: currentPrice,
-                      targetOrSlPrice: stopLossPrice,
-                      purchasePrice: holding.purchasePrice,
-                      quantity: holding.quantity,
-                      currency: holding.currency,
-                      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-                      message: `${holding.stockName} (${holding.symbol}) crossed stop-loss limit!`
-                    };
-
-                    setPriceAlerts(curr => [alertObj, ...curr.filter(a => a.symbol !== holding.symbol || a.alertType !== 'STOP_LOSS_HIT')]);
-                    return newKeys;
-                  });
-                }
-              });
-            }
-
-            return updatedTickers;
           });
+
+          // Synchronize currently active studio signal
+          setCurrentSignal(prev => {
+            if (!prev) return null;
+            const matchingQuote = data.quotes.find((q: any) => q.symbol === prev.symbol);
+            if (!matchingQuote) return prev;
+            const updatedPrice = matchingQuote.lastPrice;
+            const updatedChartData = prev.chartData ? [...prev.chartData] : [];
+            if (updatedChartData.length > 0) {
+              const lastCandle = { ...updatedChartData[updatedChartData.length - 1] };
+              lastCandle.close = updatedPrice;
+              lastCandle.high = Math.max(lastCandle.high, updatedPrice);
+              lastCandle.low = Math.min(lastCandle.low, updatedPrice);
+              updatedChartData[updatedChartData.length - 1] = lastCandle;
+            }
+            return {
+              ...prev,
+              currentPrice: updatedPrice,
+              chartData: updatedChartData
+            };
+          });
+
+          return true;
         }
+        return false;
       } catch (err) {
         console.warn('Quote feed synchronization error:', err);
+        return false;
       }
-    };
+  }, []); // stable forever — no external state closed over
 
+  // Manual, on-demand rate refresh — same function the background poller
+  // uses, so it only ever touches prices/signals/alerts, never holdings,
+  // journal, watchlist, or anything else on the page. Previously discarded
+  // fetchLiveServerQuotes' outcome entirely — a failed refresh (network drop,
+  // 500) looked identical to a successful one, since the spinner just ran and
+  // stopped either way with no indication the user's explicit click did
+  // nothing. Now surfaces a real failure via the same refreshRatesError state
+  // Sidebar already renders inline.
+  const [refreshRatesError, setRefreshRatesError] = useState<string | null>(null);
+  const handleManualRefreshRates = useCallback(async () => {
+    setIsRefreshingRates(true);
+    setRefreshRatesError(null);
+    try {
+      const ok = await fetchLiveServerQuotes();
+      if (!ok) setRefreshRatesError("Couldn't refresh rates — please try again.");
+    } finally {
+      setIsRefreshingRates(false);
+    }
+  }, [fetchLiveServerQuotes]);
+
+  useEffect(() => {
     // Initial fetch
     fetchLiveServerQuotes();
 
@@ -469,110 +370,30 @@ export default function App() {
     // When market is OPEN (9:15 AM - 3:30 PM IST, Mon-Fri): Poll every 5 seconds for live ticks.
     // When market is CLOSED: DO NOT generate false movements. Rates stay 100% frozen. Check status every 60s.
     const currentBse = getBseMarketStatus();
-    if (currentBse.isOpen) {
-      pollInterval = setInterval(fetchLiveServerQuotes, 5000);
-    } else {
-      pollInterval = setInterval(fetchLiveServerQuotes, 60000);
+    const pollInterval = setInterval(fetchLiveServerQuotes, currentBse.isOpen ? 5000 : 60000);
+
+    return () => clearInterval(pollInterval);
+  }, [fetchLiveServerQuotes, marketStatus.isOpen]);
+
+  // Per explicit user request: switching to a page from the sidebar should
+  // always show current data, not whatever the last background poll tick
+  // happened to leave sitting there (watchlist refreshes every 30s, quotes
+  // every 5-60s — up to that long stale on a page you just opened). Skips
+  // the very first render since the mount effect above (keyed on `user`)
+  // already does this exact fetch.
+  const isFirstPageRender = useRef(true);
+  useEffect(() => {
+    if (isFirstPageRender.current) {
+      isFirstPageRender.current = false;
+      return;
     }
-
-    return () => {
-      if (pollInterval) clearInterval(pollInterval);
-    };
-  }, [purchasedHoldings, marketStatus.isOpen]);
-
-  // Modal Handlers
-  const handleOpenBuyModal = (sig: MarketSignal) => {
-    setBuyModalSignal(sig);
-    setShowBuyModal(true);
-  };
-
-  const handleOpenSellModal = (holding: PurchasedHolding) => {
-    setSellModalHolding(holding);
-    setShowSellModal(true);
-  };
-
-  const handleConfirmSale = (entry: JournalEntry) => {
-    const saleRevenue = entry.sellPrice * entry.quantity;
-
-    // Refund capital with sale proceeds
-    setCapital(prev => {
-      const nextCap = prev + saleRevenue;
-      localStorage.setItem('trader_ai_capital', nextCap.toString());
-      return nextCap;
-    });
-
-    setJournalEntries(prev => {
-      const updated = [entry, ...prev];
-      localStorage.setItem('alpha_trader_journal_entries', JSON.stringify(updated));
-      return updated;
-    });
-
-    setPurchasedHoldings(prev => {
-      const updated = prev.filter(h => h.symbol !== entry.symbol);
-      localStorage.setItem('alpha_trader_purchased_holdings', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  const handleConfirmPurchase = (symbol: string, stockName: string, purchasePrice: number, quantity: number, signal: MarketSignal) => {
-    const totalCost = purchasePrice * quantity;
-
-    // Deduct purchase cost from capital
-    setCapital(prev => {
-      const nextCap = Math.max(0, prev - totalCost);
-      localStorage.setItem('trader_ai_capital', nextCap.toString());
-      return nextCap;
-    });
-
-    const now = new Date();
-    const newHolding: PurchasedHolding = {
-      id: `holding-${symbol}-${Date.now()}`,
-      symbol,
-      stockName,
-      purchasePrice,
-      quantity,
-      purchaseTime: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      purchaseDate: now.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }),
-      currency: signal.currency,
-      sellZone: signal.sellZone,
-      stopLoss: signal.stopLoss,
-      probableTimeWindow: signal.probableTimeWindow
-    };
-
-    setPurchasedHoldings(prev => {
-      const filtered = prev.filter(h => h.symbol !== symbol);
-      const updated = [newHolding, ...filtered];
-      localStorage.setItem('alpha_trader_purchased_holdings', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  const handleRemoveHolding = (symbol: string) => {
-    const targetHolding = purchasedHoldings.find(h => h.symbol === symbol);
-    if (targetHolding) {
-      const refund = targetHolding.purchasePrice * targetHolding.quantity;
-      setCapital(prev => {
-        const nextCap = prev + refund;
-        localStorage.setItem('trader_ai_capital', nextCap.toString());
-        return nextCap;
-      });
-    }
-
-    setPurchasedHoldings(prev => {
-      const updated = prev.filter(h => h.symbol !== symbol);
-      localStorage.setItem('alpha_trader_purchased_holdings', JSON.stringify(updated));
-      return updated;
-    });
-  };
-
-  // Add Manual Journal Entry
-  const handleAddManualJournalEntry = (entry: JournalEntry) => {
-    setJournalEntries(prev => {
-      const updated = [entry, ...prev];
-      localStorage.setItem('alpha_trader_journal_entries', JSON.stringify(updated));
-      return updated;
-    });
-  };
+    if (!user) return;
+    let cancelled = false;
+    apiListWatchlist().then(symbols => { if (!cancelled) setWatchlistSymbols(symbols); }).catch(err => console.error('Could not refresh watchlist:', err));
+    fetchLiveServerQuotes();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activePage]);
 
   // Navigation and Signal Selection
   const handleSelectSignalForStudio = (sig: MarketSignal) => {
@@ -639,32 +460,81 @@ export default function App() {
     setActivePage('stock-studio');
   };
 
-  const handleSearchCustom = (querySymbol: string) => {
+  // Fetches a real live quote for any BSE symbol from the server (which
+  // falls back to a live Yahoo lookup for symbols outside the curated
+  // quoteDirectory — see /api/quote/:symbol) instead of fabricating a fake
+  // flat ₹1500 price/volume for anything not already on the ticker tape.
+  // Returns whether the lookup succeeded so the search box can show a real
+  // "symbol not found" error instead of silently faking a result.
+  const handleSearchCustom = async (querySymbol: string): Promise<boolean> => {
+    // Same class of guard as signalRequestSeq/quotesFetchSeq below — found
+    // missing here: searching "RELIANCE" then immediately "TCS" had no
+    // ordering guarantee, so a slower RELIANCE lookup resolving after the
+    // faster TCS one would silently switch the active chart/signal back to
+    // RELIANCE, risking a buy/calculator action against the wrong stock.
+    const mySeq = ++searchCustomSeq.current;
     const existing = tickers.find(t => t.symbol === querySymbol);
     if (existing) {
+      if (searchCustomSeq.current !== mySeq) return true;
       handleSelectTickerFromTape(existing);
-    } else {
+      return true;
+    }
+
+    try {
+      const res = await fetch(`/api/quote/${encodeURIComponent(querySymbol)}`);
+      const data = await res.json();
+      if (!data.success || !data.quote) return false;
+      if (searchCustomSeq.current !== mySeq) return true;
+
+      const q = data.quote;
       const newTicker: MarketTicker = {
         symbol: querySymbol,
-        name: `${querySymbol} Asset`,
-        region: querySymbol.endsWith('.NS') || querySymbol.endsWith('.BO') ? 'NSE_BSE' : 'US_MARKETS',
+        name: q.name || `${querySymbol} Ltd`,
+        region: 'NSE_BSE',
         exchange: 'BSE',
-        lastPrice: 1500.00,
-        change: 15.00,
-        changePercent: 1.01,
+        lastPrice: q.lastPrice,
+        change: q.change,
+        changePercent: q.changePercent,
         currency: 'INR',
-        volume: '1.5M',
-        dayHigh: 1520.00,
-        dayLow: 1480.00
+        volume: q.volume || 'N/A',
+        dayHigh: q.dayHigh,
+        dayLow: q.dayLow
       };
       setTickers(prev => [newTicker, ...prev]);
       handleSelectTickerFromTape(newTicker);
+      return true;
+    } catch {
+      return false;
     }
   };
 
   // Generate Single AI Signal via API
   const handleGenerateSignal = async (params: { ticker: MarketTicker; timeframe: string; riskProfile: string; strategy: string }) => {
     setIsLoading(true);
+    const mySeq = ++signalRequestSeq.current;
+
+    // Real bug found and fixed 2026-09-04: this function's own AI-generated
+    // signal (confidence/patterns text) was already grounded in real Yahoo
+    // candles server-side, but the CHART itself — what's actually rendered,
+    // and what the candlestick-scanner analyzes — always came from
+    // generateCandlesticks()'s Math.random() output regardless, including
+    // pattern labels hardcoded to fixed candle indices that never reflected
+    // real price action. Fetching the real candles here, once, so both the
+    // success and fallback paths below use genuine historical OHLC instead.
+    // Falls back to the synthetic generator only if the real fetch itself
+    // fails (e.g. Yahoo unreachable) — a real degradation, not the default.
+    let realChartData: CandlestickData[] | null = null;
+    try {
+      const candlesRes = await fetch(`/api/candles/${encodeURIComponent(params.ticker.symbol)}?timeframe=${encodeURIComponent(params.timeframe)}`);
+      const candlesData = await candlesRes.json();
+      if (candlesData.success && Array.isArray(candlesData.candles) && candlesData.candles.length > 0) {
+        realChartData = candlesData.candles.map((c: any) => ({
+          time: c.time, open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume
+        }));
+      }
+    } catch (err) {
+      console.warn('Could not fetch real candles, falling back to simulated chart:', err);
+    }
 
     try {
       const response = await fetch('/api/analyze', {
@@ -683,6 +553,11 @@ export default function App() {
 
       const resData = await response.json();
 
+      // A newer timeframe/risk click has been issued since this request
+      // started — discard this now-stale response instead of letting it
+      // overwrite what the user actually selected most recently.
+      if (signalRequestSeq.current !== mySeq) return;
+
       const isCons = params.riskProfile === 'Conservative';
       const isAggr = params.riskProfile === 'Aggressive';
       const lp = params.ticker.lastPrice;
@@ -699,7 +574,7 @@ export default function App() {
             ? `T1: ${Math.floor(lp * 1.035)} | T2: ${Math.floor(lp * 1.065)} | T3: ${Math.floor(lp * 1.095)}`
             : `T1: ${Math.floor(lp * 1.022)} | T2: ${Math.floor(lp * 1.042)}`,
           stopLoss: isCons ? `${Math.floor(lp * 0.991)}` : isAggr ? `${Math.floor(lp * 0.972)}` : `${Math.floor(lp * 0.985)}`,
-          chartData: generateCandlesticks(params.ticker.lastPrice, 32, params.timeframe, params.riskProfile)
+          chartData: realChartData ?? generateCandlesticks(params.ticker.lastPrice, 32, params.timeframe, params.riskProfile)
         };
         setCurrentSignal(newSig);
         setSavedSignals(prev => [newSig, ...prev.filter(s => s.symbol !== newSig.symbol)]);
@@ -764,7 +639,7 @@ export default function App() {
             mediumTermWeekly: 'Swing continuation towards major structural high.',
             longTermOutlook: 'Sustained institutional uptake.'
           },
-          chartData: generateCandlesticks(params.ticker.lastPrice, 32, params.timeframe, params.riskProfile)
+          chartData: realChartData ?? generateCandlesticks(params.ticker.lastPrice, 32, params.timeframe, params.riskProfile)
         };
         setCurrentSignal(generatedSignal);
         setSavedSignals(prev => [generatedSignal, ...prev.filter(s => s.symbol !== generatedSignal.symbol)]);
@@ -775,6 +650,28 @@ export default function App() {
       setIsLoading(false);
     }
   };
+
+  // Real, diagnosed bug (2026-09-04): `currentSignal` starts as
+  // INITIAL_SAMPLE_SIGNALS[0] — a fully synthetic seed whose chartData comes
+  // from generateCandlesticks()'s Math.random() output, including pattern
+  // labels HARDCODED to fixed candle indices (see marketData.ts's
+  // `patternLabel` logic) that never reflect real price action at all.
+  // Nothing ever replaced this seed automatically, so a user who opens Stock
+  // Studio without first manually clicking "Re-Analyze" was looking at a
+  // chart and pattern annotations with zero connection to real RSI/MACD/
+  // price data — exactly the "stuck on a pattern" symptom reported live.
+  // This fires the real /api/analyze pipeline once, as soon as real ticker
+  // data is available, to replace the fake seed before the user ever
+  // interacts with the page.
+  const hasAutoGeneratedInitialSignal = useRef(false);
+  useEffect(() => {
+    if (hasAutoGeneratedInitialSignal.current || !user || tickers.length === 0) return;
+    const seedTicker = tickers.find(t => t.symbol === INITIAL_SAMPLE_SIGNALS[0].symbol);
+    if (!seedTicker) return;
+    hasAutoGeneratedInitialSignal.current = true;
+    handleGenerateSignal({ ticker: seedTicker, timeframe: '15m', riskProfile: 'Moderate', strategy: 'AI Adaptive Momentum' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, tickers]);
 
   const handleOpenCalcForSignal = (sig: MarketSignal) => {
     setCalculatorSignal(sig);
@@ -834,17 +731,20 @@ export default function App() {
     }
   };
 
+  if (isAuthLoading) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-slate-950">
+        <div className="h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <LoginView />;
+  }
+
   return (
     <div className="h-screen max-h-screen overflow-hidden bg-slate-950 text-slate-100 font-sans flex flex-col lg:flex-row antialiased selection:bg-emerald-500 selection:text-slate-950">
-      
-      {/* REAL-TIME PRICE ALERT TOAST NOTIFICATIONS */}
-      <PriceAlertToast
-        alerts={priceAlerts}
-        onDismissAlert={handleDismissAlert}
-        onDismissAll={handleDismissAllAlerts}
-        onSellHoldingByAlert={handleSellHoldingByAlert}
-        audioEnabled={audioEnabled}
-      />
 
       {/* ========================================================================= */}
       {/* SIDEBAR NAVIGATION (Desktop permanent, Mobile slide drawer) */}
@@ -852,21 +752,19 @@ export default function App() {
       <Sidebar
         activePage={activePage}
         onSelectPage={setActivePage}
-        capital={capital}
-        onUpdateCapital={updateCapital}
-        onAddCapital={handleAddCapital}
-        capitalRecords={capitalRecords}
-        currency={currency}
         audioEnabled={audioEnabled}
         onToggleAudio={() => setAudioEnabled(!audioEnabled)}
-        holdingsCount={purchasedHoldings.length}
         watchlistCount={watchlistSymbols.length}
-        alertsCount={priceAlerts.length}
         totalSignalsCount={savedSignals.length}
         istTime={marketStatus.istTimeFormatted}
         tradingMode={tradingMode}
         onToggleTradingMode={toggleTradingMode}
         isMarketOpen={marketStatus.isOpen}
+        onRefreshRates={handleManualRefreshRates}
+        isRefreshingRates={isRefreshingRates}
+        refreshRatesError={refreshRatesError}
+        userEmail={user.email}
+        onLogout={logout}
       />
 
       {/* ========================================================================= */}
@@ -899,7 +797,6 @@ export default function App() {
           {activePage === 'market-hub' && (
             <BeginnerSummaryView
               signals={savedSignals}
-              purchasedHoldings={purchasedHoldings}
               watchlistSymbols={watchlistSymbols}
               onToggleWatchlist={handleToggleWatchlist}
               selectedStockSymbol={currentSignal?.symbol}
@@ -907,13 +804,8 @@ export default function App() {
               isLoading={isLoading}
               audioEnabled={audioEnabled}
               onOpenCalculator={handleOpenCalcForSignal}
-              onMarkAsBought={handleOpenBuyModal}
-              onRemoveHolding={handleRemoveHolding}
-              onSellHolding={handleOpenSellModal}
-              capital={capital}
               currency={currency}
               tradingMode={tradingMode}
-              onToggleTradingMode={toggleTradingMode}
             />
           )}
 
@@ -922,24 +814,17 @@ export default function App() {
             <NewsPredictionsView
               tickers={tickers}
               onSelectTicker={handleSelectTickerFromTape}
-              onSelectSignalBySymbol={(sym) => {
-                const tk = tickers.find(t => t.symbol === sym);
-                if (tk) handleSelectTickerFromTape(tk);
-              }}
               onOpenCalculatorForPrediction={handleOpenCalcForPrediction}
-              purchasedHoldings={purchasedHoldings}
-              capital={capital}
               currency={currency}
               onNavigatePage={setActivePage}
             />
           )}
 
-          {/* 2. WATCHLIST SECTION (Bookmarked Tickers for Non-Holdings & Tracking) */}
+          {/* 2. WATCHLIST SECTION (Bookmarked Tickers for Tracking) */}
           {activePage === 'watchlist' && (
             <WatchlistView
               tickers={tickers}
               signals={savedSignals}
-              purchasedHoldings={purchasedHoldings}
               watchlistSymbols={watchlistSymbols}
               onToggleWatchlist={handleToggleWatchlist}
               onNavigateToStudio={(sym) => {
@@ -950,8 +835,6 @@ export default function App() {
                   if (tk) handleSelectTickerFromTape(tk);
                 }
               }}
-              onOpenBuyModal={handleOpenBuyModal}
-              onOpenCalculator={handleOpenCalcForSignal}
               currency={currency}
             />
           )}
@@ -970,11 +853,7 @@ export default function App() {
               onGenerateSignal={handleGenerateSignal}
               isLoading={isLoading}
               audioEnabled={audioEnabled}
-              purchasedHoldings={purchasedHoldings}
-              onMarkAsBought={handleOpenBuyModal}
-              onOpenSellModal={handleOpenSellModal}
               onOpenCalculatorForSignal={handleOpenCalcForSignal}
-              capital={capital}
               currency={currency}
               tradingMode={tradingMode}
               onToggleTradingMode={toggleTradingMode}
@@ -1002,45 +881,9 @@ export default function App() {
             />
           )}
 
-          {/* 5. PORTFOLIO & HOLDINGS PAGE */}
-          {activePage === 'portfolio' && (
-            <PortfolioView
-              purchasedHoldings={purchasedHoldings}
-              capital={capital}
-              currency={currency}
-              journalEntries={journalEntries}
-              onSellHolding={handleOpenSellModal}
-              onRemoveHolding={handleRemoveHolding}
-              onNavigateToStudio={(sym) => {
-                const sig = savedSignals.find(s => s.symbol === sym);
-                if (sig) handleSelectSignalForStudio(sig);
-                else {
-                  const tk = tickers.find(t => t.symbol === sym);
-                  if (tk) handleSelectTickerFromTape(tk);
-                }
-              }}
-              onNavigateToMarketHub={() => setActivePage('market-hub')}
-              onNavigateToJournal={() => setActivePage('journal')}
-              liveSignals={savedSignals}
-            />
-          )}
-
-          {/* 6. TRADER'S JOURNAL PAGE */}
-          {activePage === 'journal' && (
-            <JournalView
-              journalEntries={journalEntries}
-              purchasedHoldings={purchasedHoldings}
-              capital={capital}
-              currency={currency}
-              onAddManualEntry={handleAddManualJournalEntry}
-              onSellHolding={handleOpenSellModal}
-            />
-          )}
-
-          {/* 7. RISK & POSITION CALCULATOR PAGE */}
+          {/* 5. RISK & POSITION CALCULATOR PAGE */}
           {activePage === 'risk-calculator' && (
             <RiskCalculatorView
-              capital={capital}
               currency={currency}
               signals={savedSignals}
               tickers={tickers}
@@ -1048,16 +891,15 @@ export default function App() {
                 const sig = savedSignals.find(s => s.symbol === sym);
                 if (sig) handleSelectSignalForStudio(sig);
               }}
-              onOpenBuyModal={handleOpenBuyModal}
             />
           )}
 
-          {/* 8. MARKET CLOCKS & BSE CALENDAR PAGE */}
+          {/* 6. MARKET CLOCKS & BSE CALENDAR PAGE */}
           {activePage === 'market-clocks' && (
             <MarketClocksView />
           )}
 
-          {/* 9. DIRECT SUPPORT & CONTACT TANMAY PAGE */}
+          {/* 7. DIRECT SUPPORT & CONTACT TANMAY PAGE */}
           {activePage === 'support' && (
             <SupportView onSelectPage={setActivePage} />
           )}
@@ -1068,24 +910,10 @@ export default function App() {
       {/* ========================================================================= */}
       {/* GLOBAL MODALS (Triggered on demand across any view) */}
       {/* ========================================================================= */}
-      <MarkAsBoughtModal
-        isOpen={showBuyModal}
-        onClose={() => setShowBuyModal(false)}
-        signal={buyModalSignal}
-        onConfirmPurchase={handleConfirmPurchase}
-      />
-
-      <MarkAsSoldModal
-        isOpen={showSellModal}
-        onClose={() => setShowSellModal(false)}
-        holding={sellModalHolding}
-        onConfirmSale={handleConfirmSale}
-      />
-
       <PositionCalculatorModal
         isOpen={showCalculatorModal}
         onClose={() => setShowCalculatorModal(false)}
-        capital={capital}
+        capital={DEFAULT_CALCULATOR_CAPITAL}
         currency={currency}
         initialSignal={calculatorSignal}
       />
@@ -1093,11 +921,8 @@ export default function App() {
       {/* Floating Hovering Mini Assistant */}
       <MiniAssistant
         signals={savedSignals}
-        purchasedHoldings={purchasedHoldings}
-        capital={capital}
         currency={currency}
         onSelectSignal={handleSelectSignalForStudio}
-        onOpenJournal={() => setActivePage('journal')}
         onOpenCalculator={() => setActivePage('risk-calculator')}
         tradingMode={tradingMode}
         onToggleTradingMode={toggleTradingMode}
