@@ -168,8 +168,8 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
         <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 text-xs">
           {[
             { id: 'ALL', label: `All (${watchlistedItems.length})` },
-            { id: 'GAINERS', label: 'Gainers 🟢' },
-            { id: 'LOSERS', label: 'Losers 🔴' }
+            { id: 'GAINERS', label: 'Gainers' },
+            { id: 'LOSERS', label: 'Losers' }
           ].map(tab => (
             <button
               key={tab.id}
