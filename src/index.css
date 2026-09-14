@@ -1,2 +1,10 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+
+/* Fades the trailing edge of a horizontally-scrollable row so it reads as
+   "more content this way" instead of a hard, ambiguous clip at the
+   viewport edge (mobile ticker tape, filter-pill rows, ticker chips). */
+.scroll-fade-x {
+  mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 28px), transparent 100%);
+}
