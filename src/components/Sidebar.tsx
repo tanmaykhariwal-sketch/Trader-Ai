@@ -146,7 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           {/* IST clock + manual rate-only refresh, next to the logo */}
           <div className="flex items-center space-x-1 bg-slate-900 border border-slate-800 rounded-lg pl-2 pr-1 py-1 flex-shrink-0">
             <span className="font-mono text-xs text-emerald-300 font-bold tracking-wide tabular-nums" title="Current IST time">
-              {istTime || '--:--'}
+              {istTime || '--:--'} <span className="text-[9px] text-slate-500 font-bold">IST</span>
             </span>
             {onRefreshRates && (
               <button
@@ -175,7 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               }`}
               title="Toggle Simple / Advanced Mode"
             >
-              {tradingMode === 'advanced' ? '⚡ Pro' : '🌱 Simple'}
+              {tradingMode === 'advanced' ? 'Pro' : 'Simple'}
             </button>
           )}
         </div>
@@ -210,7 +210,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {/* IST clock + manual rate-only refresh, next to the logo */}
             <div className="flex items-center space-x-1.5 flex-shrink-0 bg-slate-900 border border-slate-800 rounded-lg pl-2.5 pr-1 py-1">
               <span className="font-mono text-sm text-emerald-300 font-bold tracking-wide tabular-nums" title="Current IST time">
-                {istTime || '--:--'}
+                {istTime || '--:--'} <span className="text-[10px] text-slate-500 font-bold">IST</span>
               </span>
               {onRefreshRates && (
                 <button
@@ -264,7 +264,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <span>🌱 Simple</span>
+              <span>Simple</span>
             </button>
             <button
               type="button"
@@ -275,7 +275,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   : 'text-slate-400 hover:text-slate-200'
               }`}
             >
-              <span>⚡ Pro SMC</span>
+              <span>Pro SMC</span>
             </button>
           </div>
         </div>
@@ -294,6 +294,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <button
                 key={item.id}
                 onClick={() => handleNavClick(item.id)}
+                aria-label={item.label}
+                aria-current={isActive ? 'page' : undefined}
                 className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-all group text-left ${
                   isActive
                     ? 'bg-gradient-to-r from-emerald-500/15 to-cyan-500/10 text-white border border-emerald-500/30 shadow-md shadow-emerald-500/5'
@@ -412,6 +414,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <button
                     key={item.id}
                     onClick={() => handleNavClick(item.id)}
+                    aria-label={item.label}
+                    aria-current={isActive ? 'page' : undefined}
                     className={`w-full flex items-center justify-between p-3 rounded-xl text-xs font-semibold transition-all text-left cursor-pointer ${
                       isActive
                         ? 'bg-emerald-500/15 text-white border border-emerald-500/30'
