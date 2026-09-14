@@ -14,7 +14,10 @@ import { createServer as createViteServer } from 'vite';
 
 import { attachUser } from './middleware/requireAuth';
 import { authRouter } from './routes/auth.routes';
+import { portfolioRouter } from './routes/portfolio.routes';
+import { journalRouter } from './routes/journal.routes';
 import { watchlistRouter } from './routes/watchlist.routes';
+import { adminRouter } from './routes/admin.routes';
 import { marketRouter } from './routes/market.routes';
 import { newsRouter } from './routes/news.routes';
 import { predictionsRouter } from './routes/predictions.routes';
@@ -72,7 +75,10 @@ async function startServer() {
   });
 
   app.use('/api/auth', authRouter);
+  app.use('/api/portfolio', portfolioRouter);
+  app.use('/api/journal', journalRouter);
   app.use('/api/watchlist', watchlistRouter);
+  app.use('/api/admin', adminRouter);
   app.use('/api', marketRouter);
   app.use('/api', newsRouter);
   app.use('/api', predictionsRouter);
