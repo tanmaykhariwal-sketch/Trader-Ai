@@ -440,7 +440,7 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
           </div>
 
           {/* Quick Query Action Chips - Dynamic based on active mode */}
-          <div className="px-3 py-1.5 border-t border-slate-800/80 bg-slate-950/60 flex items-center space-x-1.5 overflow-x-auto scrollbar-none flex-shrink-0">
+          <div className="px-3 py-1.5 border-t border-slate-800/80 bg-slate-950/60 flex items-center space-x-1.5 overflow-x-auto scrollbar-none flex-shrink-0 scroll-fade-x">
             <button
               onClick={() => handleSendMessage('What are the best buy signals right now?')}
               className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 text-[10px] font-bold whitespace-nowrap transition-all"
