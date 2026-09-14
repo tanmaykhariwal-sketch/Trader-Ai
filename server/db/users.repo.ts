@@ -2,24 +2,25 @@ import { db } from './connection';
 
 export interface UserRow {
   id: number;
-  email: string;
+  username: string;
   password_hash: string;
   display_name: string | null;
   created_at: string;
   trading_mode: 'simple' | 'advanced';
   currency: 'INR' | 'USD';
+  capital: number;
   disclaimer_acknowledged_at: string | null;
 }
 
-export function createUser(email: string, passwordHash: string, displayName?: string): UserRow {
+export function createUser(username: string, passwordHash: string, displayName?: string): UserRow {
   const info = db
-    .prepare('INSERT INTO users (email, password_hash, display_name) VALUES (?, ?, ?)')
-    .run(email.toLowerCase().trim(), passwordHash, displayName || null);
+    .prepare('INSERT INTO users (username, password_hash, display_name) VALUES (?, ?, ?)')
+    .run(username.toLowerCase().trim(), passwordHash, displayName || null);
   return getUserById(info.lastInsertRowid as number)!;
 }
 
-export function getUserByEmail(email: string): UserRow | undefined {
-  return db.prepare('SELECT * FROM users WHERE email = ?').get(email.toLowerCase().trim()) as UserRow | undefined;
+export function getUserByUsername(username: string): UserRow | undefined {
+  return db.prepare('SELECT * FROM users WHERE username = ?').get(username.toLowerCase().trim()) as UserRow | undefined;
 }
 
 export function getUserById(id: number): UserRow | undefined {
@@ -32,6 +33,11 @@ export function setTradingMode(userId: number, mode: 'simple' | 'advanced'): voi
 
 export function acknowledgeDisclaimer(userId: number): void {
   db.prepare("UPDATE users SET disclaimer_acknowledged_at = datetime('now') WHERE id = ?").run(userId);
+}
+
+/** Every registered account, for the owner-only "User Data" admin view. */
+export function listAllUsers(): UserRow[] {
+  return db.prepare('SELECT * FROM users ORDER BY created_at DESC').all() as UserRow[];
 }
 
 export function createSession(sessionId: string, userId: number, expiresAt: Date): void {
