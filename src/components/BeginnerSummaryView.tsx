@@ -41,19 +41,19 @@ export const BeginnerSummaryView: React.FC<BeginnerSummaryViewProps> = ({
   const getEntryStatus = (currentPrice: number, buyZoneStr: string) => {
     const nums = buyZoneStr.replace(/,/g, '').match(/\d+(\.\d+)?/g);
     if (!nums || nums.length < 2) {
-      return { status: 'In Range', colorClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', label: '🟢 In Buy Range' };
+      return { status: 'In Range', colorClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', label: 'In Buy Range' };
     }
     const low = parseFloat(nums[0]);
     const high = parseFloat(nums[1]);
 
     if (currentPrice <= high * 1.008 && currentPrice >= low * 0.99) {
-      return { status: 'In Range', colorClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', label: '🟢 In Buy Range' };
+      return { status: 'In Range', colorClass: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30', label: 'In Buy Range' };
     } else if (currentPrice > high * 1.008 && currentPrice <= high * 1.025) {
-      return { status: 'Approaching', colorClass: 'bg-amber-500/10 text-amber-300 border-amber-500/30', label: '🟡 Approaching Zone' };
+      return { status: 'Approaching', colorClass: 'bg-amber-500/10 text-amber-300 border-amber-500/30', label: 'Approaching Zone' };
     } else if (currentPrice > high * 1.025) {
-      return { status: 'Past Range', colorClass: 'bg-rose-500/10 text-rose-300 border-rose-500/30', label: '🔴 Price Past Zone (Wait Pullback)' };
+      return { status: 'Past Range', colorClass: 'bg-rose-500/10 text-rose-300 border-rose-500/30', label: 'Price Past Zone (Wait Pullback)' };
     } else {
-      return { status: 'Dip Watch', colorClass: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30', label: '🔵 Dip Entry Watch' };
+      return { status: 'Dip Watch', colorClass: 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30', label: 'Dip Entry Watch' };
     }
   };
 
@@ -157,7 +157,7 @@ export const BeginnerSummaryView: React.FC<BeginnerSummaryViewProps> = ({
                   : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700/60'
               }`}
             >
-              <span>🔥 Top Conviction (≥85%)</span>
+              <span>Top Conviction (≥85%)</span>
             </button>
 
             <button
@@ -168,7 +168,7 @@ export const BeginnerSummaryView: React.FC<BeginnerSummaryViewProps> = ({
                   : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700/60'
               }`}
             >
-              <span>⚡ Breakouts</span>
+              <span>Breakouts</span>
             </button>
 
             <button
@@ -179,7 +179,7 @@ export const BeginnerSummaryView: React.FC<BeginnerSummaryViewProps> = ({
                   : 'bg-slate-800/80 text-slate-300 hover:bg-slate-800 border border-slate-700/60'
               }`}
             >
-              <span>🛡️ Low/Med Risk</span>
+              <span>Low/Med Risk</span>
             </button>
           </div>
         </div>
@@ -219,7 +219,7 @@ export const BeginnerSummaryView: React.FC<BeginnerSummaryViewProps> = ({
                   isSelected ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40' : 'bg-slate-800/80 text-slate-400'
                 }`}>
                   <Zap className="h-3 w-3 inline mr-1 text-cyan-400" />
-                  {isSelected ? '📊 Detailed Chart & Price History Active (Click again to close & return home)' : 'Click to inspect candlestick graph & price history'}
+                  {isSelected ? 'Detailed Chart & Price History Active (Click again to close & return home)' : 'Click to inspect candlestick graph & price history'}
                 </span>
               </div>
 
