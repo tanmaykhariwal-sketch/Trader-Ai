@@ -96,7 +96,7 @@ export const AdvancedAnalyticsView: React.FC<AdvancedAnalyticsViewProps> = ({
         </div>
 
         {/* Stock Switcher Chips */}
-        <div className="flex items-center space-x-2 overflow-x-auto pb-1 custom-scrollbar">
+        <div className="flex items-center space-x-2 overflow-x-auto pb-1 custom-scrollbar scroll-fade-x">
           {filteredTickers.map(t => {
             const isSelected = activeSymbol === t.symbol;
             const isPositive = t.changePercent >= 0;
