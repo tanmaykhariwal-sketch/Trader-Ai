@@ -33,18 +33,26 @@ export const PositionCalculatorModal: React.FC<PositionCalculatorModalProps> = (
     // saw the previous session's edited numbers presented as if they were
     // the signal's real values.
     if (!isOpen || !initialSignal) return;
-    setEntryPrice(initialSignal.currentPrice);
+    const entry = initialSignal.currentPrice;
+    setEntryPrice(entry);
     // parse numeric stop loss if possible
     const slMatch = initialSignal.stopLoss.match(/[\d,.]+/);
+    // A signal's stopLoss/sellZone text is frozen at generation time, but
+    // currentPrice keeps live-updating on every quote tick — if the real
+    // price has since moved past the frozen level, trusting the parsed
+    // number seeds a structurally invalid trade (SL above entry, or target
+    // below entry) even though each value is individually "real."
     if (slMatch) {
-      setStopLossPrice(parseFloat(slMatch[0].replace(/,/g, '')));
+      const parsedSl = parseFloat(slMatch[0].replace(/,/g, ''));
+      setStopLossPrice(parsedSl < entry ? parsedSl : +(entry * 0.98).toFixed(2));
     }
     // parse numeric target if possible — sellZone is formatted as
     // "T1: ₹1,830 | T2: ₹1,850"; a bare digit-run match would also match
     // the "1" inside the "T1" label itself, so extract by label instead.
     const targetMatch = initialSignal.sellZone.match(/T1:\s*₹?([\d,]+(\.\d+)?)/);
     if (targetMatch) {
-      setTargetPrice(parseFloat(targetMatch[1].replace(/,/g, '')));
+      const parsedTarget = parseFloat(targetMatch[1].replace(/,/g, ''));
+      setTargetPrice(parsedTarget > entry ? parsedTarget : +(entry * 1.035).toFixed(2));
     }
   }, [initialSignal, isOpen]);
 
@@ -170,7 +178,7 @@ export const PositionCalculatorModal: React.FC<PositionCalculatorModalProps> = (
               isAcceptableRR ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-amber-500/20 text-amber-400 border border-amber-500/30'
             }`}>
               {isAcceptableRR ? <CheckCircle2 className="h-3 w-3 mr-1" /> : <AlertTriangle className="h-3 w-3 mr-1" />}
-              R:R Ratio = 1 : {riskRewardRatio} ({isAcceptableRR ? 'Valid Setup' : 'Low R:R'})
+              {isInvertedSetup ? 'R:R Ratio = — (invalid setup)' : `R:R Ratio = 1 : ${riskRewardRatio} (${isAcceptableRR ? 'Valid Setup' : 'Low R:R'})`}
             </span>
           </div>
 
@@ -192,7 +200,9 @@ export const PositionCalculatorModal: React.FC<PositionCalculatorModalProps> = (
 
             <div className="bg-slate-900 p-2.5 rounded-lg border border-slate-800">
               <span className="text-slate-400 block text-[10px]">Target Potential Profit:</span>
-              <span className="font-mono text-xs font-bold text-cyan-300">+{currency === 'INR' ? '₹' : '$'}{potentialProfitAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+              <span className="font-mono text-xs font-bold text-cyan-300">
+                {isInvertedSetup ? '—' : `+${currency === 'INR' ? '₹' : '$'}${potentialProfitAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}`}
+              </span>
             </div>
           </div>
         </div>
