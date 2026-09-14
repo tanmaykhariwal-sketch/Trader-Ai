@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { MarketTicker } from '../types';
-import { TrendingUp, TrendingDown, Flame, Search, Radio, Lock } from 'lucide-react';
+import { TrendingUp, TrendingDown, Flame, Search, Radio, Lock, Landmark } from 'lucide-react';
 import { BseMarketStatus } from '../utils/marketHours';
 
 interface MarketTickerBarProps {
@@ -57,7 +57,7 @@ export const MarketTickerBar: React.FC<MarketTickerBarProps> = ({
         {/* BSE Market Watch Label & Trading Status */}
         <div className="flex items-center flex-wrap gap-2">
           <div className="flex items-center space-x-2 bg-slate-900 border border-slate-800 px-2.5 sm:px-3 py-1 rounded-lg">
-            <span className="text-base">🇮🇳</span>
+            <Landmark className="h-3.5 w-3.5 text-emerald-400 flex-shrink-0" />
             <span className="text-xs font-black text-white uppercase tracking-wider">
               BSE Session Watch
             </span>
@@ -95,6 +95,8 @@ export const MarketTickerBar: React.FC<MarketTickerBarProps> = ({
             <div className="flex items-center space-x-1.5 text-[10px] font-mono text-slate-500">
               <Radio className={`h-3 w-3 ${isLiveFeedActive ? 'text-emerald-400' : 'text-slate-600'}`} />
               <span>Synced {lastUpdatedTime} IST</span>
+              <span className="text-slate-700">·</span>
+              <span title="Data comes from Yahoo Finance's public endpoint, not an official/licensed exchange feed">Yahoo Finance (unofficial)</span>
             </div>
           )}
         </div>
