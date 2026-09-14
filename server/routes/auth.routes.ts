@@ -5,6 +5,7 @@ import { createUser, getUserByEmail, createSession, deleteSession } from '../db/
 import { SESSION_COOKIE, requireAuth } from '../middleware/requireAuth';
 import { authRateLimiter } from '../middleware/rateLimiter';
 import { db } from '../db/connection';
+import { logger, errorDetail } from '../utils/logger';
 
 export const authRouter = Router();
 
@@ -68,7 +69,7 @@ authRouter.post('/register', authRateLimiter, async (req, res) => {
     if (typeof err?.message === 'string' && err.message.includes('UNIQUE constraint failed: users.email')) {
       return res.status(409).json({ success: false, error: 'An account with this email already exists.' });
     }
-    console.error('Error in /api/auth/register:', err);
+    logger.error({ module: 'auth.routes', event: 'register_failed', error: errorDetail(err) });
     res.status(500).json({ success: false, error: 'Could not create account.' });
   }
 });
@@ -86,6 +87,10 @@ authRouter.post('/login', authRateLimiter, async (req, res) => {
     const passwordHash = user?.password_hash || '$2b$12$invalidsaltinvalidsaltinvalidsalOu';
     const valid = await bcrypt.compare(password, passwordHash);
     if (!user || !valid) {
+      // No email/PII in the log line itself — just the fact and source IP,
+      // enough to spot a credential-stuffing pattern without logging who
+      // was targeted.
+      logger.warn({ module: 'auth.routes', event: 'login_failed', ip: req.ip });
       return res.status(401).json({ success: false, error: 'Incorrect email or password.' });
     }
 
@@ -95,7 +100,7 @@ authRouter.post('/login', authRateLimiter, async (req, res) => {
 
     res.json({ success: true, user: publicUser(user) });
   } catch (err: any) {
-    console.error('Error in /api/auth/login:', err);
+    logger.error({ module: 'auth.routes', event: 'login_error', error: errorDetail(err) });
     res.status(500).json({ success: false, error: 'Could not sign in.' });
   }
 });
