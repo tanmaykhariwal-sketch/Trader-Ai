@@ -4,6 +4,7 @@ import { aiRateLimiter, externalApiRateLimiter } from '../middleware/rateLimiter
 import { requireAuth } from '../middleware/requireAuth';
 import { quoteDirectory, liveQuotesCache, fetchHistoricalCandles } from '../services/yahooFinance.service';
 import { rsi, macd, ema, sma } from '../services/indicators.service';
+import { logger, errorDetail } from '../utils/logger';
 
 export const analyzeRouter = Router();
 
@@ -219,7 +220,7 @@ You MUST format your response as a valid JSON object strictly adhering to this s
     try {
       parsedData = JSON.parse(responseText);
     } catch (e) {
-      console.error('Failed to parse JSON response from Gemini:', e);
+      logger.error({ module: 'analyze.routes', event: 'analyze_json_parse_failed', error: errorDetail(e) });
       return res.status(200).json({ success: false, error: 'Parsing error from model response.', rawText: responseText, useFallback: true });
     }
 
@@ -235,13 +236,13 @@ You MUST format your response as a valid JSON object strictly adhering to this s
       && isPlainObject(parsedData.possibleScenarios);
 
     if (!isValidShape) {
-      console.error('Gemini /analyze response failed shape validation:', responseText);
+      logger.error({ module: 'analyze.routes', event: 'analyze_shape_invalid', responseText });
       return res.status(200).json({ success: false, error: 'Model response was malformed.', rawText: responseText, useFallback: true });
     }
 
     res.json({ success: true, data: parsedData });
   } catch (error: any) {
-    console.error('Error in /api/analyze:', error);
+    logger.error({ module: 'analyze.routes', event: 'analyze_failed', error: errorDetail(error) });
     res.status(500).json({ success: false, error: 'Server error generating analysis.' });
   }
 });
@@ -346,7 +347,7 @@ Return a JSON array of signals matching this format:
     try {
       parsedData = JSON.parse(responseText);
     } catch (e) {
-      console.error('Failed to parse JSON response from Gemini (market-opportunities):', e);
+      logger.error({ module: 'analyze.routes', event: 'market_opportunities_json_parse_failed', error: errorDetail(e) });
       return res.status(200).json({ success: false, error: 'Parsing error from model response.', useFallback: true });
     }
 
@@ -360,13 +361,13 @@ Return a JSON array of signals matching this format:
       || !isPlainObject(item?.technicalSignals)
       || !isPlainObject(item?.riskAssessment)
     )) {
-      console.error('Gemini /market-opportunities response failed shape validation:', responseText);
+      logger.error({ module: 'analyze.routes', event: 'market_opportunities_shape_invalid', responseText });
       return res.status(200).json({ success: false, error: 'Model response was malformed.', useFallback: true });
     }
 
     res.json({ success: true, data: parsedData });
   } catch (err: any) {
-    console.error('Error in /api/market-opportunities:', err);
+    logger.error({ module: 'analyze.routes', event: 'market_opportunities_failed', error: errorDetail(err) });
     res.status(200).json({ success: false, error: 'Error processing market opportunities scanner.', useFallback: true });
   }
 });
@@ -427,7 +428,7 @@ Live Market Context: ${marketContext}
 
     res.json({ success: true, text: response.text || 'Market analysis ready.', dataProvenance: 'AI_GENERATED' });
   } catch (err: any) {
-    console.error('Error in /api/assistant/chat:', err);
+    logger.error({ module: 'analyze.routes', event: 'assistant_chat_failed', error: errorDetail(err) });
     res.json({
       success: true,
       dataProvenance: 'AI_FALLBACK',
@@ -652,7 +653,7 @@ analyzeRouter.post('/candlestick-scanner', externalApiRateLimiter, (req, res) =>
 
     res.json({ success: true, symbol: symbol || 'EQUITY', patternsDetected: patterns });
   } catch (e: any) {
-    console.error('Error in /api/candlestick-scanner:', e);
+    logger.error({ module: 'analyze.routes', event: 'candlestick_scanner_failed', error: errorDetail(e) });
     res.status(500).json({ success: false, error: 'Failed to scan candlestick patterns.' });
   }
 });
