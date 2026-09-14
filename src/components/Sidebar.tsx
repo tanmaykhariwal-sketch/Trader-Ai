@@ -15,7 +15,12 @@ import {
   Globe,
   HelpCircle,
   RefreshCw,
-  LogOut
+  LogOut,
+  Briefcase,
+  BookOpen,
+  Users,
+  Wallet,
+  PlusCircle
 } from 'lucide-react';
 import { AppPage, TradingMode } from '../types';
 
@@ -25,6 +30,7 @@ interface SidebarProps {
   audioEnabled: boolean;
   onToggleAudio: () => void;
   watchlistCount?: number;
+  holdingsCount?: number;
   totalSignalsCount: number;
   istTime: string;
   tradingMode?: TradingMode;
@@ -33,8 +39,12 @@ interface SidebarProps {
   onRefreshRates?: () => void;
   isRefreshingRates?: boolean;
   refreshRatesError?: string | null;
-  userEmail?: string;
+  username?: string;
+  isAdmin?: boolean;
   onLogout?: () => void;
+  capital?: number;
+  currency?: 'INR' | 'USD';
+  onAddCapital?: (amount: number, note?: string) => Promise<boolean> | void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -43,6 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   audioEnabled,
   onToggleAudio,
   watchlistCount = 0,
+  holdingsCount = 0,
   totalSignalsCount,
   istTime,
   tradingMode = 'simple',
@@ -51,10 +62,38 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRefreshRates,
   isRefreshingRates = false,
   refreshRatesError,
-  userEmail,
-  onLogout
+  username,
+  isAdmin = false,
+  onLogout,
+  capital = 0,
+  currency = 'INR',
+  onAddCapital
 }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [showAddCapitalModal, setShowAddCapitalModal] = useState(false);
+  const [addAmount, setAddAmount] = useState<string>('');
+  const [depositError, setDepositError] = useState<string | null>(null);
+  const [isSubmittingDeposit, setIsSubmittingDeposit] = useState(false);
+  const currSymbol = currency === 'INR' ? '₹' : '$';
+
+  const handleAddCapitalSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseFloat(addAmount);
+    if (!val || val <= 0 || !onAddCapital) return;
+    setDepositError(null);
+    setIsSubmittingDeposit(true);
+    try {
+      const ok = await onAddCapital(val, 'Capital Deposit');
+      if (ok === false) {
+        setDepositError("Couldn't record that deposit — please try again.");
+      } else {
+        setShowAddCapitalModal(false);
+        setAddAmount('');
+      }
+    } finally {
+      setIsSubmittingDeposit(false);
+    }
+  };
 
   const navItems: { id: AppPage; label: string; icon: React.ComponentType<{ className?: string }>; badge?: string | number; badgeColor?: string; description: string }[] = [
     {
@@ -74,12 +113,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
       description: 'Global News Feed & Stock Forecasts'
     },
     {
+      id: 'portfolio',
+      label: 'Portfolio',
+      icon: Briefcase,
+      badge: holdingsCount > 0 ? `${holdingsCount} Open` : undefined,
+      badgeColor: 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30',
+      description: 'Holdings, Capital & P&L'
+    },
+    {
       id: 'watchlist',
       label: 'Watchlist',
       icon: Star,
       badge: watchlistCount > 0 ? `${watchlistCount} Saved` : undefined,
       badgeColor: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
       description: 'Bookmarked & Tracked Tickers'
+    },
+    {
+      id: 'journal',
+      label: "Trader's Journal",
+      icon: BookOpen,
+      description: 'Closed Trade History & Notes'
     },
     {
       id: 'stock-studio',
@@ -114,7 +167,15 @@ export const Sidebar: React.FC<SidebarProps> = ({
       label: 'Support & Help',
       icon: HelpCircle,
       description: 'Direct Contact & Trading FAQs'
-    }
+    },
+    ...(isAdmin ? [{
+      id: 'user-data' as AppPage,
+      label: 'User Data',
+      icon: Users,
+      badge: 'Owner',
+      badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/30',
+      description: 'Every Registered Account & Trades'
+    }] : [])
   ];
 
   const handleNavClick = (pageId: AppPage) => {
@@ -332,6 +393,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         {/* Sidebar Footer: Controls */}
         <div className="p-4 border-t border-slate-800/80 space-y-3 bg-slate-950/60">
+          {/* Account Capital */}
+          <button
+            onClick={() => onAddCapital && setShowAddCapitalModal(true)}
+            className="w-full flex items-center justify-between px-2.5 py-2 rounded-lg bg-slate-900/90 border border-slate-800 hover:border-emerald-500/40 transition-colors cursor-pointer group"
+            title="Add Capital / Record Deposit"
+          >
+            <span className="flex items-center space-x-1.5 text-[11px] text-slate-400 font-semibold">
+              <Wallet className="h-3.5 w-3.5 text-emerald-400" />
+              <span>Capital</span>
+            </span>
+            <span className="flex items-center space-x-1 font-mono text-xs font-bold text-emerald-300">
+              <span>{currSymbol}{capital.toLocaleString()}</span>
+              {onAddCapital && <PlusCircle className="h-3.5 w-3.5 text-slate-500 group-hover:text-emerald-400" />}
+            </span>
+          </button>
+
           {/* Quick Controls Bar */}
           <div className="flex items-center justify-between px-1">
             <button
@@ -355,7 +432,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
           {onLogout && (
             <div className="flex items-center justify-between px-1 pt-1 border-t border-slate-900">
-              <span className="text-[10px] text-slate-500 truncate max-w-[140px]" title={userEmail}>{userEmail}</span>
+              <span className="text-[10px] text-slate-500 truncate max-w-[140px]" title={username}>
+                {username}{isAdmin ? ' (Owner)' : ''}
+              </span>
               <button
                 onClick={onLogout}
                 className="flex items-center space-x-1 text-[11px] font-semibold text-slate-400 hover:text-rose-300 transition-colors cursor-pointer"
@@ -368,6 +447,51 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </div>
       </aside>
+
+      {/* ========================================================================= */}
+      {/* ADD CAPITAL MODAL */}
+      {/* ========================================================================= */}
+      {showAddCapitalModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setShowAddCapitalModal(false)} />
+          <div className="relative w-full max-w-sm bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold text-white flex items-center space-x-2">
+                <Wallet className="h-4 w-4 text-emerald-400" />
+                <span>Add Trading Capital</span>
+              </h3>
+              <button onClick={() => setShowAddCapitalModal(false)} className="p-1 rounded-lg text-slate-400 hover:text-white cursor-pointer">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="text-xs text-slate-400">
+              Current Capital: <span className="font-mono font-bold text-white">{currSymbol}{capital.toLocaleString()}</span>
+            </div>
+            <form onSubmit={handleAddCapitalSubmit} className="space-y-3">
+              <input
+                type="number"
+                autoFocus
+                min="0"
+                step="0.01"
+                value={addAmount}
+                onChange={(e) => setAddAmount(e.target.value)}
+                placeholder="Amount to add"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/60"
+              />
+              {depositError && (
+                <div className="text-xs text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-lg px-3 py-2">{depositError}</div>
+              )}
+              <button
+                type="submit"
+                disabled={!addAmount || parseFloat(addAmount) <= 0 || isSubmittingDeposit}
+                className="w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-slate-950 font-black text-sm cursor-pointer"
+              >
+                {isSubmittingDeposit ? 'Adding…' : 'Add to Capital'}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* MOBILE SLIDE-OVER DRAWER */}
