@@ -108,12 +108,12 @@ export const BeginnerSummaryView: React.FC<BeginnerSummaryViewProps> = ({
               <Activity className="h-5 w-5" />
             </div>
             <div>
-              <h2 className="text-lg font-extrabold text-white tracking-tight flex items-center space-x-2">
+              <h1 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center space-x-2">
                 <span>Trading Action Signals</span>
                 <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider">
                   Live Signals
                 </span>
-              </h2>
+              </h1>
               <p className="text-xs text-slate-400 mt-0.5">
                 AI-generated buy zones, targets & time windows — you decide when and whether to act on them
               </p>
@@ -137,7 +137,7 @@ export const BeginnerSummaryView: React.FC<BeginnerSummaryViewProps> = ({
               className="w-full bg-slate-800/80 border border-slate-700/60 rounded-xl pl-8 pr-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500"
             />
           </div>
-          <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs font-semibold">
+          <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 sm:pb-0 text-xs font-semibold scroll-fade-x">
             <button
               onClick={() => setSignalFilter('ALL')}
               className={`px-3 py-1.5 rounded-xl transition-all ${
@@ -271,9 +271,9 @@ export const BeginnerSummaryView: React.FC<BeginnerSummaryViewProps> = ({
                         <strong className="text-slate-400">Entry Time Window:</strong> <span className="font-mono text-cyan-300 font-semibold">{topBuySignal.probableTimeWindow}</span>
                       </div>
                       <div>
-                        <strong className="text-slate-400">Sell Target:</strong> <span className="font-mono text-emerald-300 font-semibold">{topBuySignal.sellZone}</span>
+                        <strong className="text-slate-400" title="T1 is the first profit-taking level the AI expects; T2 is a further target if momentum continues past T1">Sell Target:</strong> <span className="font-mono text-emerald-300 font-semibold">{topBuySignal.sellZone}</span>
                         {' • '}
-                        <strong className="text-slate-400">Stop Loss:</strong> <span className="font-mono text-rose-400 font-semibold">{topBuySignal.stopLoss}</span>
+                        <strong className="text-slate-400" title="The price level at which the setup is considered invalidated — exiting here limits how much the position can lose">Stop Loss:</strong> <span className="font-mono text-rose-400 font-semibold">{topBuySignal.stopLoss}</span>
                       </div>
                       <div className="mt-2 text-xs font-semibold text-amber-300/90 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg flex items-center space-x-1.5">
                         <Info className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
@@ -312,6 +312,7 @@ export const BeginnerSummaryView: React.FC<BeginnerSummaryViewProps> = ({
                       {topBuySignal.confidenceScore}% AI Confidence
                     </span>
                   </div>
+                  <span className="text-[10px] text-slate-500 font-mono">Updated {topBuySignal.timestamp}</span>
 
                   <div className="flex items-center space-x-2">
                     <button
@@ -431,10 +432,11 @@ export const BeginnerSummaryView: React.FC<BeginnerSummaryViewProps> = ({
                       </div>
                     )}
 
-                    <div className="pt-1 border-t border-slate-800/80">
+                    <div className="pt-1 border-t border-slate-800/80 flex items-center justify-between">
                       <span className="text-[10px] text-cyan-400/90 font-mono">
                         {isSelected ? 'Click again to close & return home' : 'Click to inspect live chart & full analysis'}
                       </span>
+                      <span className="text-[10px] text-slate-600 font-mono">Updated {sig.timestamp}</span>
                     </div>
                   </div>
                 );
