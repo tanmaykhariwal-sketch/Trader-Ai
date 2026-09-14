@@ -249,6 +249,10 @@ export const SignalCard: React.FC<SignalCardProps> = ({
         )}
       </div>
 
+      <p className="text-[10px] text-slate-600 text-center pt-1">
+        Educational signal only — not investment advice. No real orders are ever placed.
+      </p>
+
     </div>
   );
 };
