@@ -150,7 +150,7 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
         </div>
 
         {/* Quick Ticker Chips */}
-        <div className="flex items-center space-x-2 overflow-x-auto pb-1 custom-scrollbar">
+        <div className="flex items-center space-x-2 overflow-x-auto pb-1 custom-scrollbar scroll-fade-x">
           {tickers.map(t => {
             const isSelected = selectedTicker.symbol === t.symbol;
             const isPositive = t.changePercent >= 0;
