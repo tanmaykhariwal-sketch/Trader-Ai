@@ -5,8 +5,8 @@ export interface AuthContextType {
   user: ServerUser | null;
   isLoading: boolean;
   error: string | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName?: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
+  register: (username: string, password: string, displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
 }
@@ -25,10 +25,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .finally(() => setIsLoading(false));
   }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
+  const login = useCallback(async (username: string, password: string) => {
     setError(null);
     try {
-      const res = await apiLogin(email, password);
+      const res = await apiLogin(username, password);
       setUser(res.user);
     } catch (err: any) {
       setError(err.message || 'Could not sign in.');
@@ -36,10 +36,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const register = useCallback(async (email: string, password: string, displayName?: string) => {
+  const register = useCallback(async (username: string, password: string, displayName?: string) => {
     setError(null);
     try {
-      const res = await apiRegister(email, password, displayName);
+      const res = await apiRegister(username, password, displayName);
       setUser(res.user);
     } catch (err: any) {
       setError(err.message || 'Could not create account.');
