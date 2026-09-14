@@ -63,7 +63,6 @@ export const MarketClocksView: React.FC = () => {
       timeZone: 'Asia/Kolkata',
       tradingHoursIST: '09:15 AM – 03:30 PM IST',
       localHours: '09:15 AM – 03:30 PM',
-      flag: '🇮🇳',
       isPrimary: true
     },
     {
@@ -72,8 +71,7 @@ export const MarketClocksView: React.FC = () => {
       city: 'New York, USA',
       timeZone: 'America/New_York',
       tradingHoursIST: '07:00 PM – 01:30 AM IST',
-      localHours: '09:30 AM – 04:00 PM EST',
-      flag: '🇺🇸'
+      localHours: '09:30 AM – 04:00 PM EST'
     },
     {
       name: 'NASDAQ Stock Market',
@@ -81,8 +79,7 @@ export const MarketClocksView: React.FC = () => {
       city: 'New York, USA',
       timeZone: 'America/New_York',
       tradingHoursIST: '07:00 PM – 01:30 AM IST',
-      localHours: '09:30 AM – 04:00 PM EST',
-      flag: '🇺🇸'
+      localHours: '09:30 AM – 04:00 PM EST'
     },
     {
       name: 'London Stock Exchange (LSE)',
@@ -90,8 +87,7 @@ export const MarketClocksView: React.FC = () => {
       city: 'London, UK',
       timeZone: 'Europe/London',
       tradingHoursIST: '01:30 PM – 10:00 PM IST',
-      localHours: '08:00 AM – 04:30 PM GMT',
-      flag: '🇬🇧'
+      localHours: '08:00 AM – 04:30 PM GMT'
     },
     {
       name: 'Tokyo Stock Exchange (TSE)',
@@ -99,8 +95,7 @@ export const MarketClocksView: React.FC = () => {
       city: 'Tokyo, Japan',
       timeZone: 'Asia/Tokyo',
       tradingHoursIST: '05:30 AM – 11:30 AM IST',
-      localHours: '09:00 AM – 03:00 PM JST',
-      flag: '🇯🇵'
+      localHours: '09:00 AM – 03:00 PM JST'
     },
     {
       name: 'Hong Kong Exchanges (HKEX)',
@@ -108,8 +103,7 @@ export const MarketClocksView: React.FC = () => {
       city: 'Hong Kong',
       timeZone: 'Asia/Hong_Kong',
       tradingHoursIST: '07:00 AM – 01:30 PM IST',
-      localHours: '09:30 AM – 04:00 PM HKT',
-      flag: '🇭🇰'
+      localHours: '09:30 AM – 04:00 PM HKT'
     }
   ];
 
@@ -189,7 +183,6 @@ export const MarketClocksView: React.FC = () => {
             >
               <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-3">
                 <div className="flex items-center space-x-2.5">
-                  <span className="text-2xl">{ex.flag}</span>
                   <div>
                     <h3 className="font-extrabold text-sm text-white">{ex.name}</h3>
                     <div className="text-[11px] text-slate-400 font-mono">{ex.city}</div>
@@ -245,7 +238,6 @@ export const MarketClocksView: React.FC = () => {
                 key={ex.code}
                 className="px-3 py-1.5 rounded-lg border bg-slate-900/50 border-slate-800/60 text-slate-400 flex items-center space-x-1.5"
               >
-                <span className="text-sm">{ex.flag}</span>
                 <span className="text-[11px] font-mono font-bold text-slate-300">{ex.code}</span>
                 <span className="text-[11px] font-mono">·</span>
                 <span className="text-[11px] font-mono">{localTime} {tzAbbrev}</span>
