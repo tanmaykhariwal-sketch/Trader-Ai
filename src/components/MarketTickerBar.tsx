@@ -128,7 +128,7 @@ export const MarketTickerBar: React.FC<MarketTickerBarProps> = ({
       </div>
 
       {/* Ticker Tape Cards */}
-      <div className="max-w-7xl mx-auto mt-2 flex items-center space-x-2 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent py-1">
+      <div className="max-w-7xl mx-auto mt-2 flex items-center space-x-2 overflow-x-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent py-1 scroll-fade-x">
         {tickers.map((t) => {
           const isSelected = selectedSymbol === t.symbol;
           const isUp = t.change >= 0;
