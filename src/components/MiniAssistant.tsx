@@ -141,12 +141,12 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
       }
       if (advanced) {
         return {
-          responseText: `🎯 **Institutional Buy Setup: ${topBuy.stockName} (${topBuy.symbol})**\n\n• **Order Block / Demand Zone:** ${currSym}${topBuy.buyZone}\n• **Dual-Tier Targets:** ${currSym}${topBuy.sellZone}\n• **Protective Stop Loss:** ${currSym}${topBuy.stopLoss} (<1.5% capital risk)\n• **Optimal Execution Window:** ${topBuy.probableTimeWindow}\n• **SMC Confluence:** ${topBuy.confidenceScore}% Score | RSI ${topBuy.technicalSignals?.rsiReading || '61.2'} | 1:2.8 Risk-to-Reward Expectancy.`,
+          responseText: `**Institutional Buy Setup: ${topBuy.stockName} (${topBuy.symbol})**\n\n• **Order Block / Demand Zone:** ${currSym}${topBuy.buyZone}\n• **Dual-Tier Targets:** ${currSym}${topBuy.sellZone}\n• **Protective Stop Loss:** ${currSym}${topBuy.stopLoss} (<1.5% capital risk)\n• **Optimal Execution Window:** ${topBuy.probableTimeWindow}\n• **SMC Confluence:** ${topBuy.confidenceScore}% Score | RSI ${topBuy.technicalSignals?.rsiReading || '61.2'} | 1:2.8 Risk-to-Reward Expectancy.`,
           signal: topBuy
         };
       }
       return {
-        responseText: `🚀 **Recommended Stock to Buy: ${topBuy.stockName} (${topBuy.symbol})**\n\n• **Safe Buy Price:** ${currSym}${topBuy.buyZone}\n• **Target Profit Selling Zone:** ${currSym}${topBuy.sellZone}\n• **Safety Stop Loss:** ${currSym}${topBuy.stopLoss}\n• **Best Time to Enter:** ${topBuy.probableTimeWindow}\n\n*Rule: Only buy within the recommended green price range to protect your money.*`,
+        responseText: `**Recommended Stock to Buy: ${topBuy.stockName} (${topBuy.symbol})**\n\n• **Safe Buy Price:** ${currSym}${topBuy.buyZone}\n• **Target Profit Selling Zone:** ${currSym}${topBuy.sellZone}\n• **Safety Stop Loss:** ${currSym}${topBuy.stopLoss}\n• **Best Time to Enter:** ${topBuy.probableTimeWindow}\n\n*Rule: Only buy within the recommended green price range to protect your money.*`,
         signal: topBuy
       };
     }
@@ -156,29 +156,29 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
         return { responseText: "No live signals are loaded yet to suggest an exit zone for. Wait for signals to refresh, or ask about a specific symbol." };
       }
       return {
-        responseText: `🔴 **Key Exit / Target Zone: ${topSell.stockName} (${topSell.symbol})**\n\n• **Target Sell Zone:** ${currSym}${topSell.sellZone}\n• **Stop Loss Trigger:** ${currSym}${topSell.stopLoss}\n• **Reasoning:** Near major resistance. Consider booking profits as price touches target.`
+        responseText: `**Key Exit / Target Zone: ${topSell.stockName} (${topSell.symbol})**\n\n• **Target Sell Zone:** ${currSym}${topSell.sellZone}\n• **Stop Loss Trigger:** ${currSym}${topSell.stopLoss}\n• **Reasoning:** Near major resistance. Consider booking profits as price touches target.`
       };
     }
 
     if (lower.includes('tip') || lower.includes('advice') || lower.includes('rule') || lower.includes('risk')) {
       if (advanced) {
         return {
-          responseText: `💡 **Institutional Quantitative Risk Rules**\n\n1. **Capital Allocation:** Risk maximum 1.5% of total equity per setup — use the Risk & Sizing calculator for the exact number.\n2. **Order Flow Confluence:** Confirm 15-minute Fair Value Gap (FVG) absorption prior to market entry.\n3. **Volume Spread Confirmation:** Avoid entries when breakout volume is below 1.5x 20-period moving average.`
+          responseText: `**Institutional Quantitative Risk Rules**\n\n1. **Capital Allocation:** Risk maximum 1.5% of total equity per setup — use the Risk & Sizing calculator for the exact number.\n2. **Order Flow Confluence:** Confirm 15-minute Fair Value Gap (FVG) absorption prior to market entry.\n3. **Volume Spread Confirmation:** Avoid entries when breakout volume is below 1.5x 20-period moving average.`
         };
       }
       return {
-        responseText: `💡 **Senior Trader Golden Rules**\n\n1. **Small Position Sizing:** Never put all your money in one stock. Keep trades under 5%–10% of your capital — the Risk & Sizing calculator works this out for you.\n2. **Always Use Stop Loss:** Protect your capital by setting stop loss orders.\n3. **Trade During Peak Hours:** Best liquidity on BSE is 9:30–11:30 AM & 1:30–3:00 PM IST.`
+        responseText: `**Senior Trader Golden Rules**\n\n1. **Small Position Sizing:** Never put all your money in one stock. Keep trades under 5%–10% of your capital — the Risk & Sizing calculator works this out for you.\n2. **Always Use Stop Loss:** Protect your capital by setting stop loss orders.\n3. **Trade During Peak Hours:** Best liquidity on BSE is 9:30–11:30 AM & 1:30–3:00 PM IST.`
       };
     }
 
     if (lower.includes('rsi') || lower.includes('macd') || lower.includes('technical') || lower.includes('indicator') || lower.includes('confluence')) {
       return {
-        responseText: `📈 **Technical Confluence Metrics**\n\n• **RSI (Momentum):** Measures speed of price moves on 14-period candles. Below 40 is a buying dip, above 70 is extended.\n• **MACD (Trend):** Positive histogram bars confirm buyers have control.\n• **Confluence Score:** 5/5 indicator alignment gives >85% statistical probability of reaching Target 1.`
+        responseText: `**Technical Confluence Metrics**\n\n• **RSI (Momentum):** Measures speed of price moves on 14-period candles. Below 40 is a buying dip, above 70 is extended.\n• **MACD (Trend):** Positive histogram bars confirm buyers have control.\n• **Confluence Score:** 5/5 indicator alignment gives >85% statistical probability of reaching Target 1.`
       };
     }
 
     return {
-      responseText: `🤖 **Trader AI Assistant for "${query}"**\n\nI am tracking live BSE market structures and signals. Quick actions:\n• **Find Buys:** "What stock should I buy?"\n• **Target Exits:** "Show target selling zones"\n• **Risk Tips:** "Give me a trading tip"\n• **Technicals:** "Explain RSI and MACD"`
+      responseText: `**Trader AI Assistant for "${query}"**\n\nI am tracking live BSE market structures and signals. Quick actions:\n• **Find Buys:** "What stock should I buy?"\n• **Target Exits:** "Show target selling zones"\n• **Risk Tips:** "Give me a trading tip"\n• **Technicals:** "Explain RSI and MACD"`
     };
   };
 
@@ -303,8 +303,8 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
       id: `mode-${Date.now()}`,
       sender: 'assistant',
       text: nextMode
-        ? `⚡ **Switched to Advanced Mode**: Responses now include Smart Money Concepts (Order blocks, Fair Value Gaps, RSI divergence, Volume Spread, and mathematical Risk-to-Reward).`
-        : `🌱 **Switched to Simple Mode**: Responses are now streamlined, beginner-friendly, and focused on clear Buy Zones, Selling Targets, and Stop Loss rules.`,
+        ? `**Switched to Advanced Mode**: Responses now include Smart Money Concepts (Order blocks, Fair Value Gaps, RSI divergence, Volume Spread, and mathematical Risk-to-Reward).`
+        : `**Switched to Simple Mode**: Responses are now streamlined, beginner-friendly, and focused on clear Buy Zones, Selling Targets, and Stop Loss rules.`,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       badge: nextMode ? 'Advanced Mode' : 'Simple Mode'
     };
@@ -364,7 +364,7 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
                 }`}
                 title="Toggle between Simple and Advanced AI response mode"
               >
-                <span>{isAdvancedMode ? '⚡ Advanced' : '🌱 Simple'}</span>
+                <span>{isAdvancedMode ? 'Advanced' : 'Simple'}</span>
               </button>
 
               <button
@@ -445,13 +445,13 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
               onClick={() => handleSendMessage('What are the best buy signals right now?')}
               className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-emerald-300 border border-slate-700 text-[10px] font-bold whitespace-nowrap transition-all"
             >
-              🚀 Buy Signals
+              Buy Signals
             </button>
             <button
               onClick={() => handleSendMessage('Show target selling zones')}
               className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 text-[10px] font-bold whitespace-nowrap transition-all"
             >
-              🎯 Target Zones
+              Target Zones
             </button>
             {isAdvancedMode ? (
               <>
@@ -459,13 +459,13 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
                   onClick={() => handleSendMessage('Analyze order block and RSI confluence')}
                   className="px-2.5 py-1 rounded-full bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/40 text-[10px] font-bold whitespace-nowrap transition-all"
                 >
-                  ⚡ SMC Analysis
+                  SMC Analysis
                 </button>
                 <button
                   onClick={() => handleSendMessage('Give me institutional risk rules')}
                   className="px-2.5 py-1 rounded-full bg-purple-500/20 hover:bg-purple-500/30 text-amber-300 border border-purple-500/40 text-[10px] font-bold whitespace-nowrap transition-all"
                 >
-                  📐 Risk Math
+                  Risk Math
                 </button>
               </>
             ) : (
@@ -474,13 +474,13 @@ export const MiniAssistant: React.FC<MiniAssistantProps> = ({
                   onClick={() => handleSendMessage('Give me a beginner trader tip')}
                   className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-amber-300 border border-slate-700 text-[10px] font-bold whitespace-nowrap transition-all"
                 >
-                  💡 Trader Tip
+                  Trader Tip
                 </button>
                 <button
                   onClick={() => handleSendMessage('What is a Stop Loss and how does it protect me?')}
                   className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-teal-300 border border-slate-700 text-[10px] font-bold whitespace-nowrap transition-all"
                 >
-                  🛡️ Stop Loss
+                  Stop Loss
                 </button>
               </>
             )}
