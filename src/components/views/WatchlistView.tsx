@@ -106,7 +106,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
             </div>
             <div>
               <div className="flex items-center space-x-2">
-                <h1 className="text-xl font-extrabold text-white tracking-tight">
+                <h1 className="text-lg sm:text-xl font-black text-white tracking-tight">
                   Personal Stock Watchlist
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
@@ -165,7 +165,7 @@ export const WatchlistView: React.FC<WatchlistViewProps> = ({
         </div>
 
         {/* Filter Pills */}
-        <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 text-xs">
+        <div className="flex items-center space-x-1.5 w-full sm:w-auto overflow-x-auto pb-1 sm:pb-0 text-xs scroll-fade-x">
           {[
             { id: 'ALL', label: `All (${watchlistedItems.length})` },
             { id: 'GAINERS', label: 'Gainers' },
