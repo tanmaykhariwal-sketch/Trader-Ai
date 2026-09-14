@@ -9,7 +9,8 @@ import {
   Volume2,
   VolumeX,
   Calculator,
-  Compass
+  Compass,
+  ShoppingBag
 } from 'lucide-react';
 
 interface SignalCardProps {
@@ -17,13 +18,15 @@ interface SignalCardProps {
   onOpenCalculatorForSignal: (signal: MarketSignal) => void;
   audioEnabled: boolean;
   onViewFullAnalysis?: () => void;
+  onMarkAsBought?: (signal: MarketSignal) => void;
 }
 
 export const SignalCard: React.FC<SignalCardProps> = ({
   signal,
   onOpenCalculatorForSignal,
   audioEnabled,
-  onViewFullAnalysis
+  onViewFullAnalysis,
+  onMarkAsBought
 }) => {
   const [isSpeaking, setIsSpeaking] = useState(false);
 
@@ -138,6 +141,16 @@ export const SignalCard: React.FC<SignalCardProps> = ({
             <Calculator className="h-4 w-4" />
             <span>Calc Position</span>
           </button>
+
+          {onMarkAsBought && (
+            <button
+              onClick={() => onMarkAsBought(signal)}
+              className="px-3 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center space-x-1.5 transition-colors shadow-lg shadow-cyan-500/20"
+            >
+              <ShoppingBag className="h-4 w-4" />
+              <span>I Bought This</span>
+            </button>
+          )}
 
         </div>
 
