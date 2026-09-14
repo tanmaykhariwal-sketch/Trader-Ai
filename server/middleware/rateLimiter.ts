@@ -1,5 +1,6 @@
 import rateLimit, { ipKeyGenerator } from 'express-rate-limit';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
+import { logger } from '../utils/logger';
 
 /** Per-user (falling back to per-IP for anonymous callers) rate limit for the
  * Gemini-backed routes, so one caller can't burn the operator's LLM quota.
@@ -26,7 +27,11 @@ export const authRateLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator: (req: Request) => `ip:${ipKeyGenerator(req.ip || '')}`,
-  message: { success: false, error: 'Too many attempts. Please wait a few minutes and try again.' }
+  message: { success: false, error: 'Too many attempts. Please wait a few minutes and try again.' },
+  handler: (req: Request, res: Response) => {
+    logger.warn({ module: 'rateLimiter', event: 'auth_rate_limited', ip: req.ip, path: req.path });
+    res.status(429).json({ success: false, error: 'Too many attempts. Please wait a few minutes and try again.' });
+  }
 });
 
 /** Per-IP rate limit for routes that proxy an external API (Yahoo Finance,
