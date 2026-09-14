@@ -3,17 +3,22 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, Suspense, lazy } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { MarketTickerBar } from './components/MarketTickerBar';
 import { BeginnerSummaryView } from './components/BeginnerSummaryView';
-import { StockStudioView } from './components/views/StockStudioView';
-import { AdvancedAnalyticsView } from './components/views/AdvancedAnalyticsView';
-import { RiskCalculatorView } from './components/views/RiskCalculatorView';
-import { MarketClocksView } from './components/views/MarketClocksView';
-import { WatchlistView } from './components/views/WatchlistView';
-import { SupportView } from './components/views/SupportView';
-import { NewsPredictionsView } from './components/views/NewsPredictionsView';
+
+// Code-split every page except Market Hub (the default landing page, so
+// there's nothing to gain from deferring it — it always loads immediately
+// anyway). Each of these was previously bundled into the initial JS payload
+// even though at most one renders at a time based on `activePage`.
+const StockStudioView = lazy(() => import('./components/views/StockStudioView').then(m => ({ default: m.StockStudioView })));
+const AdvancedAnalyticsView = lazy(() => import('./components/views/AdvancedAnalyticsView').then(m => ({ default: m.AdvancedAnalyticsView })));
+const RiskCalculatorView = lazy(() => import('./components/views/RiskCalculatorView').then(m => ({ default: m.RiskCalculatorView })));
+const MarketClocksView = lazy(() => import('./components/views/MarketClocksView').then(m => ({ default: m.MarketClocksView })));
+const WatchlistView = lazy(() => import('./components/views/WatchlistView').then(m => ({ default: m.WatchlistView })));
+const SupportView = lazy(() => import('./components/views/SupportView').then(m => ({ default: m.SupportView })));
+const NewsPredictionsView = lazy(() => import('./components/views/NewsPredictionsView').then(m => ({ default: m.NewsPredictionsView })));
 
 import { PositionCalculatorModal } from './components/PositionCalculatorModal';
 import { MiniAssistant } from './components/MiniAssistant';
@@ -839,7 +844,11 @@ export default function App() {
 
         {/* Page Content Container */}
         <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-5 sm:py-6">
-          
+          <Suspense fallback={
+            <div className="flex items-center justify-center py-24">
+              <div className="h-8 w-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+            </div>
+          }>
           {/* 1. MARKET HUB PAGE */}
           {activePage === 'market-hub' && (
             <BeginnerSummaryView
@@ -950,6 +959,7 @@ export default function App() {
           {activePage === 'support' && (
             <SupportView onSelectPage={setActivePage} />
           )}
+          </Suspense>
 
         </main>
       </div>
