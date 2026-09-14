@@ -19,20 +19,38 @@ const MarketClocksView = lazy(() => import('./components/views/MarketClocksView'
 const WatchlistView = lazy(() => import('./components/views/WatchlistView').then(m => ({ default: m.WatchlistView })));
 const SupportView = lazy(() => import('./components/views/SupportView').then(m => ({ default: m.SupportView })));
 const NewsPredictionsView = lazy(() => import('./components/views/NewsPredictionsView').then(m => ({ default: m.NewsPredictionsView })));
+const PortfolioView = lazy(() => import('./components/views/PortfolioView').then(m => ({ default: m.PortfolioView })));
+const JournalView = lazy(() => import('./components/views/JournalView').then(m => ({ default: m.JournalView })));
+const UserDataView = lazy(() => import('./components/views/UserDataView').then(m => ({ default: m.UserDataView })));
 
 import { PositionCalculatorModal } from './components/PositionCalculatorModal';
 import { MiniAssistant } from './components/MiniAssistant';
+import { MarkAsBoughtModal } from './components/MarkAsBoughtModal';
+import { MarkAsSoldModal } from './components/MarkAsSoldModal';
+import { PriceAlertToast } from './components/PriceAlertToast';
 
 import { INITIAL_TICKERS, INITIAL_SAMPLE_SIGNALS, generateCandlesticks } from './data/marketData';
-import { MarketTicker, MarketSignal, AppPage, TradingMode, StockPrediction, CandlestickData } from './types';
+import { MarketTicker, MarketSignal, AppPage, TradingMode, StockPrediction, CandlestickData, PurchasedHolding, JournalEntry, CapitalRecord, PriceAlert, TradeType } from './types';
 import { getBseMarketStatus, BseMarketStatus } from './utils/marketHours';
 import { isIndexSymbol } from './utils/indexSymbols';
+import { FALLBACK_TARGET_MULTIPLIER, FALLBACK_STOP_LOSS_MULTIPLIER } from './utils/holdingMetrics';
 import { useAuth } from './context/AuthContext';
 import { LoginView } from './components/LoginView';
 import {
   apiListWatchlist,
   apiAddWatchlist,
-  apiRemoveWatchlist
+  apiRemoveWatchlist,
+  apiGetPortfolioState,
+  apiAddCapital,
+  apiSetCapital,
+  apiBuyHolding,
+  apiSellHolding,
+  apiUpdateHoldingTradeType,
+  apiUpdateHoldingLevels,
+  apiCorrectHoldingPurchase,
+  apiDeleteHolding,
+  apiListJournal,
+  apiAddJournalEntry
 } from './utils/api';
 
 // Default account size the standalone calculators (Risk & Sizing page,
@@ -45,7 +63,7 @@ const DEFAULT_CALCULATOR_CAPITAL = 100000;
 // validate against, not just an `as AppPage` cast.
 const VALID_APP_PAGES: AppPage[] = [
   'market-hub', 'stock-studio', 'advanced-analytics', 'news-predictions',
-  'watchlist', 'risk-calculator', 'market-clocks', 'support'
+  'portfolio', 'watchlist', 'journal', 'risk-calculator', 'market-clocks', 'support', 'user-data'
 ];
 
 export default function App() {
@@ -92,6 +110,52 @@ export default function App() {
       return nextMode;
     });
   }, []);
+
+  // Account Capital & Capital Deposit History — server-authoritative, loaded
+  // once a user is signed in (see the portfolio-load effect below).
+  const [capital, setCapital] = useState<number>(0);
+  const [capitalRecords, setCapitalRecords] = useState<CapitalRecord[]>([]);
+
+  // Sequence guard: the 30s structural poll, the login effect, and the
+  // 404-reconciliation calls inside handleUpdateHoldingLevels/
+  // handleCorrectHoldingPurchase can all call this concurrently — without
+  // this, an older call's response resolving after a newer one's could
+  // overwrite fresher capital/holdings state with a stale snapshot.
+  const portfolioLoadSeq = useRef(0);
+  const loadPortfolioState = useCallback(async () => {
+    const mySeq = ++portfolioLoadSeq.current;
+    try {
+      const state = await apiGetPortfolioState();
+      if (mySeq !== portfolioLoadSeq.current) return;
+      setCapital(state.capital);
+      setCapitalRecords(state.capitalRecords);
+      setPurchasedHoldings(state.holdings);
+    } catch (err) {
+      console.error('Could not load portfolio state:', err);
+    }
+  }, []);
+
+  const handleAddCapital = useCallback(async (amountToAdd: number, note?: string): Promise<boolean> => {
+    try {
+      await apiAddCapital(amountToAdd, note);
+      await loadPortfolioState();
+      return true;
+    } catch (err) {
+      console.error('Could not add capital:', err);
+      return false;
+    }
+  }, [loadPortfolioState]);
+
+  const updateCapital = useCallback(async (newCap: number): Promise<boolean> => {
+    try {
+      await apiSetCapital(Math.max(0, newCap));
+      await loadPortfolioState();
+      return true;
+    } catch (err) {
+      console.error('Could not set capital:', err);
+      return false;
+    }
+  }, [loadPortfolioState]);
 
   const [currency, setCurrency] = useState<'INR' | 'USD'>('INR');
   const [audioEnabled, setAudioEnabled] = useState<boolean>(true);
@@ -146,6 +210,17 @@ export default function App() {
   // to stale prices.
   const quotesFetchSeq = useRef(0);
 
+  // Purchased Holdings & Journal — server-authoritative, loaded once a user
+  // is signed in (see the portfolio-load effect below).
+  const [purchasedHoldings, setPurchasedHoldings] = useState<PurchasedHolding[]>([]);
+  // fetchLiveServerQuotes reads this via ref rather than closing over the
+  // state directly, so the callback's identity stays permanently stable
+  // (empty dep array) while still reading the latest holdings for the
+  // price-alert engine below.
+  const purchasedHoldingsRef = useRef(purchasedHoldings);
+  useEffect(() => { purchasedHoldingsRef.current = purchasedHoldings; }, [purchasedHoldings]);
+  const [journalEntries, setJournalEntries] = useState<JournalEntry[]>([]);
+
   // Watchlist — server-authoritative, loaded once a user is signed in.
   const [watchlistSymbols, setWatchlistSymbols] = useState<string[]>([]);
 
@@ -173,6 +248,16 @@ export default function App() {
   useEffect(() => {
     if (!user) {
       setWatchlistSymbols([]);
+      setCapital(0);
+      setCapitalRecords([]);
+      setPurchasedHoldings([]);
+      setJournalEntries([]);
+      // Price alerts are derived client-side from `purchasedHoldings`, but
+      // the alert objects/toasts themselves aren't — without this, an alert
+      // raised under one account could still be visible/clickable after
+      // switching to a different one.
+      setPriceAlerts([]);
+      setTriggeredAlertKeys(new Set());
       // MiniAssistant persists its chat log/unread-state under fixed,
       // non-namespaced localStorage keys — without clearing them here, the
       // next account to sign in on this browser/tab would see the previous
@@ -182,19 +267,216 @@ export default function App() {
       return;
     }
     let cancelled = false;
-    apiListWatchlist().then(symbols => { if (!cancelled) setWatchlistSymbols(symbols); }).catch(err => console.error('Could not load watchlist:', err));
+    (async () => {
+      await Promise.all([
+        apiGetPortfolioState().then(state => {
+          if (cancelled) return;
+          setCapital(state.capital);
+          setCapitalRecords(state.capitalRecords);
+          setPurchasedHoldings(state.holdings);
+        }).catch(err => console.error('Could not load portfolio state:', err)),
+        apiListJournal().then(entries => { if (!cancelled) setJournalEntries(entries); }).catch(err => console.error('Could not load journal:', err)),
+        apiListWatchlist().then(symbols => { if (!cancelled) setWatchlistSymbols(symbols); }).catch(err => console.error('Could not load watchlist:', err))
+      ]);
+    })();
     // A rapid logout->login-as-a-different-user shouldn't let the first
     // user's slower-to-resolve fetch land after the second user's state is
     // already loading — `cancelled` is what stops that stale write.
     return () => { cancelled = true; };
   }, [user]);
 
+  // Periodic structural re-sync of holdings/capital/journal so a change made
+  // in another tab/device for the same account eventually shows up here too.
+  useEffect(() => {
+    if (!user) return;
+    const interval = setInterval(() => { loadPortfolioState(); }, 30000);
+    return () => clearInterval(interval);
+  }, [user, loadPortfolioState]);
+
+  // Price Alert System State
+  const [priceAlerts, setPriceAlerts] = useState<PriceAlert[]>([]);
+  const [triggeredAlertKeys, setTriggeredAlertKeys] = useState<Set<string>>(new Set());
+  // Same ref-mirroring reason as purchasedHoldingsRef above.
+  const triggeredAlertKeysRef = useRef(triggeredAlertKeys);
+  useEffect(() => { triggeredAlertKeysRef.current = triggeredAlertKeys; }, [triggeredAlertKeys]);
+
   // Live Market Feed and Status Tracking
   const [priceFlashMap, setPriceFlashMap] = useState<Record<string, 'up' | 'down'>>({});
 
   // Modal controls
+  const [showBuyModal, setShowBuyModal] = useState<boolean>(false);
+  const [buyModalSignal, setBuyModalSignal] = useState<MarketSignal | null>(null);
+  // Lets a caller (e.g. Risk Calculator) pre-fill the buy modal with exact
+  // computed price/quantity instead of always resetting to signal defaults.
+  const [buyModalOverrides, setBuyModalOverrides] = useState<{ price?: number; quantity?: number } | null>(null);
+
+  const [showSellModal, setShowSellModal] = useState<boolean>(false);
+  const [sellModalHolding, setSellModalHolding] = useState<PurchasedHolding | null>(null);
+
   const [showCalculatorModal, setShowCalculatorModal] = useState<boolean>(false);
   const [calculatorSignal, setCalculatorSignal] = useState<MarketSignal | null>(null);
+
+  const handleOpenBuyModal = (sig: MarketSignal, overrides?: { price?: number; quantity?: number }) => {
+    setBuyModalSignal(sig);
+    setBuyModalOverrides(overrides ?? null);
+    setShowBuyModal(true);
+  };
+
+  const handleOpenSellModal = (holding: PurchasedHolding) => {
+    setSellModalHolding(holding);
+    setShowSellModal(true);
+  };
+
+  // Helper to parse numeric price out of holding.sellZone ("T1: ₹1,320 | T2:
+  // ₹1,345") or holding.stopLoss (a plain number, no label). A bare
+  // digit-run regex against sellZone also matches the "1"/"2" inside the
+  // "T1"/"T2" labels themselves — try the labeled "T1:" extraction first.
+  const parseNumericPrice = (raw: string | number | undefined, defaultVal: number): number => {
+    if (typeof raw === 'number' && !isNaN(raw) && raw > 0) return raw;
+    if (!raw) return defaultVal;
+    const str = String(raw);
+    const labeled = str.match(/T1:\s*₹?([\d,]+(\.\d+)?)/);
+    if (labeled) {
+      const parsed = parseFloat(labeled[1].replace(/,/g, ''));
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    const numbers = str.match(/[\d,]+(\.\d+)?/g);
+    if (numbers && numbers.length > 0) {
+      const parsed = parseFloat(numbers[0].replace(/,/g, ''));
+      if (!isNaN(parsed) && parsed > 0) return parsed;
+    }
+    return defaultVal;
+  };
+
+  const handleDismissAlert = useCallback((id: string) => {
+    setPriceAlerts(prev => prev.filter(a => a.id !== id));
+  }, []);
+
+  const handleDismissAllAlerts = () => {
+    setPriceAlerts([]);
+  };
+
+  const handleSellHoldingByAlert = (alert: PriceAlert) => {
+    const targetHolding = purchasedHoldings.find(h => h.id === alert.holdingId || h.symbol === alert.symbol);
+    if (targetHolding) {
+      handleOpenSellModal(targetHolding);
+    }
+    handleDismissAlert(alert.id);
+  };
+
+  // Returns null on success, or an error message on failure.
+  const handleConfirmSale = async (entry: JournalEntry): Promise<string | null> => {
+    if (!entry.holdingId) {
+      console.error('handleConfirmSale called without a holdingId — nothing to sell.');
+      return 'No open holding to sell against.';
+    }
+    try {
+      await apiSellHolding(entry.holdingId, entry.sellPrice, entry.quantity);
+      await Promise.all([loadPortfolioState(), apiListJournal().then(setJournalEntries)]);
+      return null;
+    } catch (err) {
+      console.error('Could not record sale:', err);
+      return err instanceof Error ? err.message : 'Could not record sale.';
+    }
+  };
+
+  // Returns null on success, or the server's error message on failure.
+  const handleConfirmPurchase = async (symbol: string, stockName: string, purchasePrice: number, quantity: number, signal: MarketSignal, tradeType: TradeType): Promise<string | null> => {
+    try {
+      await apiBuyHolding({
+        symbol,
+        stockName,
+        purchasePrice,
+        quantity,
+        signal: {
+          currency: signal.currency,
+          sellZone: signal.sellZone,
+          stopLoss: signal.stopLoss,
+          probableTimeWindow: signal.probableTimeWindow
+        },
+        tradeType
+      });
+      await loadPortfolioState();
+      return null;
+    } catch (err) {
+      console.error('Could not record purchase:', err);
+      return err instanceof Error ? err.message : 'Could not record purchase.';
+    }
+  };
+
+  // Same class of guard as signalRequestSeq/quotesFetchSeq, keyed per-holding
+  // since two rapid toggles on the SAME holding had no ordering guarantee.
+  const tradeTypeUpdateSeq = useRef(new Map<string, number>());
+  const handleUpdateHoldingTradeType = async (holdingId: string, tradeType: TradeType) => {
+    const mySeq = (tradeTypeUpdateSeq.current.get(holdingId) ?? 0) + 1;
+    tradeTypeUpdateSeq.current.set(holdingId, mySeq);
+    try {
+      const updated = await apiUpdateHoldingTradeType(holdingId, tradeType);
+      if (tradeTypeUpdateSeq.current.get(holdingId) !== mySeq) return;
+      setPurchasedHoldings(prev => prev.map(h => (h.id === holdingId ? updated : h)));
+    } catch (err) {
+      console.error('Could not update trade type:', err);
+    }
+  };
+
+  // Lets the user move stop-loss/target on an open position. Never touches
+  // purchase price/quantity/timestamp.
+  const handleUpdateHoldingLevels = async (
+    holdingId: string,
+    levels: { stopLossPriceNum?: number; targetPriceNum?: number }
+  ): Promise<string | null> => {
+    try {
+      const updated = await apiUpdateHoldingLevels(holdingId, levels);
+      setPurchasedHoldings(prev => prev.map(h => (h.id === holdingId ? updated : h)));
+      return null;
+    } catch (err: any) {
+      if (err?.status === 404) loadPortfolioState();
+      return err?.message || "Couldn't update stop-loss/target — please try again.";
+    }
+  };
+
+  // Corrects a typo in a MANUALLY-logged purchase price/quantity. Also
+  // updates capital, since a correction changes how much was actually spent.
+  const handleCorrectHoldingPurchase = async (
+    holdingId: string,
+    correction: { purchasePrice?: number; quantity?: number }
+  ): Promise<string | null> => {
+    try {
+      const { holding: updated, capital: newCapital } = await apiCorrectHoldingPurchase(holdingId, correction);
+      setPurchasedHoldings(prev => prev.map(h => (h.id === holdingId ? updated : h)));
+      setCapital(newCapital);
+      loadPortfolioState();
+      return null;
+    } catch (err: any) {
+      if (err?.status === 404) loadPortfolioState();
+      return err?.message || "Couldn't correct this holding — please try again.";
+    }
+  };
+
+  // Lot-based: a symbol can have more than one open holding, so removal is
+  // keyed by the specific holding's id, never its symbol.
+  const handleRemoveHolding = async (holdingId: string) => {
+    try {
+      const nextCapital = await apiDeleteHolding(holdingId);
+      setCapital(nextCapital);
+      setPurchasedHoldings(prev => prev.filter(h => h.id !== holdingId));
+    } catch (err) {
+      console.error('Could not remove holding:', err);
+    }
+  };
+
+  // Returns null on success, or the server's error message on failure.
+  const handleAddManualJournalEntry = async (entry: JournalEntry): Promise<string | null> => {
+    try {
+      const { id, ...rest } = entry;
+      const created = await apiAddJournalEntry(rest);
+      setJournalEntries(prev => [created, ...prev]);
+      return null;
+    } catch (err) {
+      console.error('Could not save journal entry:', err);
+      return err instanceof Error ? err.message : 'Could not save journal entry.';
+    }
+  };
 
   // Reset scroll position on active page change (independent page scrolling)
   useEffect(() => {
@@ -355,6 +637,66 @@ export default function App() {
             };
           });
 
+          // Evaluate target profit and stop-loss levels for all active holdings.
+          const currentHoldings = purchasedHoldingsRef.current;
+          if (currentHoldings.length > 0) {
+            currentHoldings.forEach(holding => {
+              const quote = data.quotes.find((q: any) => q.symbol === holding.symbol);
+              const currentPrice = quote ? quote.lastPrice : holding.purchasePrice;
+
+              const targetPrice = holding.targetPriceNum || parseNumericPrice(holding.sellZone, holding.purchasePrice * FALLBACK_TARGET_MULTIPLIER);
+              const stopLossPrice = holding.stopLossPriceNum || parseNumericPrice(holding.stopLoss, holding.purchasePrice * FALLBACK_STOP_LOSS_MULTIPLIER);
+
+              // Deliberately NOT nesting setPriceAlerts inside
+              // setTriggeredAlertKeys's functional updater — React 18
+              // StrictMode double-invokes updaters in dev, and a nested
+              // setState fires as a real side effect on both invocations.
+              if (currentPrice >= targetPrice) {
+                const alertKey = `target-${holding.id}-${Math.floor(targetPrice)}`;
+                if (!triggeredAlertKeysRef.current.has(alertKey)) {
+                  setTriggeredAlertKeys(prevKeys => new Set(prevKeys).add(alertKey));
+                  const alertObj: PriceAlert = {
+                    id: `alert-target-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                    holdingId: holding.id,
+                    symbol: holding.symbol,
+                    stockName: holding.stockName,
+                    alertType: 'TARGET_MET',
+                    triggerPrice: currentPrice,
+                    targetOrSlPrice: targetPrice,
+                    purchasePrice: holding.purchasePrice,
+                    quantity: holding.quantity,
+                    currency: holding.currency,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    message: `${holding.stockName} (${holding.symbol}) reached target exit price!`
+                  };
+                  setPriceAlerts(curr => [alertObj, ...curr.filter(a => a.symbol !== holding.symbol || a.alertType !== 'TARGET_MET')]);
+                }
+              }
+
+              if (currentPrice <= stopLossPrice) {
+                const alertKey = `sl-${holding.id}-${Math.floor(stopLossPrice)}`;
+                if (!triggeredAlertKeysRef.current.has(alertKey)) {
+                  setTriggeredAlertKeys(prevKeys => new Set(prevKeys).add(alertKey));
+                  const alertObj: PriceAlert = {
+                    id: `alert-sl-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+                    holdingId: holding.id,
+                    symbol: holding.symbol,
+                    stockName: holding.stockName,
+                    alertType: 'STOP_LOSS_HIT',
+                    triggerPrice: currentPrice,
+                    targetOrSlPrice: stopLossPrice,
+                    purchasePrice: holding.purchasePrice,
+                    quantity: holding.quantity,
+                    currency: holding.currency,
+                    timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                    message: `${holding.stockName} (${holding.symbol}) crossed stop-loss limit!`
+                  };
+                  setPriceAlerts(curr => [alertObj, ...curr.filter(a => a.symbol !== holding.symbol || a.alertType !== 'STOP_LOSS_HIT')]);
+                }
+              }
+            });
+          }
+
           return true;
         }
         consecutiveQuoteFailuresRef.current += 1;
@@ -420,6 +762,8 @@ export default function App() {
     if (!user) return;
     let cancelled = false;
     apiListWatchlist().then(symbols => { if (!cancelled) setWatchlistSymbols(symbols); }).catch(err => console.error('Could not refresh watchlist:', err));
+    apiListJournal().then(entries => { if (!cancelled) setJournalEntries(entries); }).catch(err => console.error('Could not refresh journal:', err));
+    loadPortfolioState();
     fetchLiveServerQuotes();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -801,6 +1145,7 @@ export default function App() {
         audioEnabled={audioEnabled}
         onToggleAudio={() => setAudioEnabled(!audioEnabled)}
         watchlistCount={watchlistSymbols.length}
+        holdingsCount={purchasedHoldings.length}
         totalSignalsCount={savedSignals.length}
         istTime={marketStatus.istTimeFormatted}
         tradingMode={tradingMode}
@@ -809,8 +1154,12 @@ export default function App() {
         onRefreshRates={handleManualRefreshRates}
         isRefreshingRates={isRefreshingRates}
         refreshRatesError={refreshRatesError}
-        userEmail={user.email}
+        username={user.username}
+        isAdmin={user.isAdmin}
         onLogout={logout}
+        capital={capital}
+        currency={currency}
+        onAddCapital={handleAddCapital}
       />
 
       {/* ========================================================================= */}
@@ -910,6 +1259,7 @@ export default function App() {
               isLoading={isLoading}
               audioEnabled={audioEnabled}
               onOpenCalculatorForSignal={handleOpenCalcForSignal}
+              onMarkAsBought={handleOpenBuyModal}
               currency={currency}
               tradingMode={tradingMode}
               onToggleTradingMode={toggleTradingMode}
@@ -937,7 +1287,52 @@ export default function App() {
             />
           )}
 
-          {/* 5. RISK & POSITION CALCULATOR PAGE */}
+          {/* 5. PORTFOLIO & HOLDINGS PAGE */}
+          {activePage === 'portfolio' && (
+            <PortfolioView
+              purchasedHoldings={purchasedHoldings}
+              capital={capital}
+              currency={currency}
+              journalEntries={journalEntries}
+              capitalRecords={capitalRecords}
+              onSellHolding={handleOpenSellModal}
+              onRemoveHolding={handleRemoveHolding}
+              onUpdateHoldingTradeType={handleUpdateHoldingTradeType}
+              onUpdateHoldingLevels={handleUpdateHoldingLevels}
+              onCorrectHoldingPurchase={handleCorrectHoldingPurchase}
+              onNavigateToStudio={(sym) => {
+                const sig = savedSignals.find(s => s.symbol === sym);
+                if (sig) handleSelectSignalForStudio(sig);
+                else {
+                  const tk = tickers.find(t => t.symbol === sym);
+                  if (tk) handleSelectTickerFromTape(tk);
+                }
+              }}
+              onNavigateToMarketHub={() => setActivePage('market-hub')}
+              onNavigateToJournal={() => setActivePage('journal')}
+              liveSignals={savedSignals}
+              tickers={tickers}
+            />
+          )}
+
+          {/* 5.5. TRADER'S JOURNAL PAGE */}
+          {activePage === 'journal' && (
+            <JournalView
+              journalEntries={journalEntries}
+              purchasedHoldings={purchasedHoldings}
+              currency={currency}
+              onAddManualEntry={handleAddManualJournalEntry}
+              onSellHolding={handleOpenSellModal}
+              onNavigateToPortfolio={() => setActivePage('portfolio')}
+            />
+          )}
+
+          {/* 5.7. OWNER-ONLY: EVERY REGISTERED ACCOUNT'S DATA */}
+          {activePage === 'user-data' && user.isAdmin && (
+            <UserDataView currency={currency} />
+          )}
+
+          {/* 6. RISK & POSITION CALCULATOR PAGE */}
           {activePage === 'risk-calculator' && (
             <RiskCalculatorView
               currency={currency}
@@ -967,12 +1362,39 @@ export default function App() {
       {/* ========================================================================= */}
       {/* GLOBAL MODALS (Triggered on demand across any view) */}
       {/* ========================================================================= */}
+      <MarkAsBoughtModal
+        isOpen={showBuyModal}
+        onClose={() => setShowBuyModal(false)}
+        signal={buyModalSignal}
+        capital={capital}
+        currency={currency}
+        initialPrice={buyModalOverrides?.price}
+        initialQuantity={buyModalOverrides?.quantity}
+        onConfirmPurchase={handleConfirmPurchase}
+      />
+
+      <MarkAsSoldModal
+        isOpen={showSellModal}
+        onClose={() => setShowSellModal(false)}
+        holding={sellModalHolding}
+        onConfirmSale={handleConfirmSale}
+      />
+
       <PositionCalculatorModal
         isOpen={showCalculatorModal}
         onClose={() => setShowCalculatorModal(false)}
-        capital={DEFAULT_CALCULATOR_CAPITAL}
+        capital={capital || DEFAULT_CALCULATOR_CAPITAL}
         currency={currency}
         initialSignal={calculatorSignal}
+      />
+
+      {/* Real-time price alert toast notifications */}
+      <PriceAlertToast
+        alerts={priceAlerts}
+        onDismissAlert={handleDismissAlert}
+        onDismissAll={handleDismissAllAlerts}
+        onSellHoldingByAlert={handleSellHoldingByAlert}
+        audioEnabled={audioEnabled}
       />
 
       {/* Floating Hovering Mini Assistant */}
