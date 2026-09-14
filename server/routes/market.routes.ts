@@ -8,6 +8,7 @@ import {
   fetchHistoricalCandles,
   type CachedQuote
 } from '../services/yahooFinance.service';
+import { logger, errorDetail } from '../utils/logger';
 
 export const marketRouter = Router();
 
@@ -56,7 +57,7 @@ marketRouter.get('/live-quotes', (_req, res) => {
       quotes
     });
   } catch (err: any) {
-    console.error('Error generating live quotes:', err);
+    logger.error({ module: 'market.routes', event: 'live_quotes_failed', error: errorDetail(err) });
     res.status(500).json({ success: false, error: 'Failed to fetch live quotes' });
   }
 });
@@ -123,7 +124,7 @@ marketRouter.get('/quote/:symbol', externalApiRateLimiter, async (req, res) => {
 
     res.json({ success: false, error: `Could not resolve live quote for ${sym}` });
   } catch (e: any) {
-    console.error('Error fetching quote:', e);
+    logger.error({ module: 'market.routes', event: 'quote_fetch_failed', error: errorDetail(e) });
     res.status(500).json({ success: false, error: 'Failed to fetch quote' });
   }
 });
@@ -172,7 +173,7 @@ marketRouter.get('/candles/:symbol', externalApiRateLimiter, async (req, res) =>
       candles
     });
   } catch (err: any) {
-    console.error('Error fetching candles:', err);
+    logger.error({ module: 'market.routes', event: 'candles_fetch_failed', error: errorDetail(err) });
     res.status(500).json({ success: false, error: 'Failed to fetch candles' });
   }
 });
