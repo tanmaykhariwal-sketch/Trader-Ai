@@ -5,10 +5,13 @@ export type AppPage =
   | 'stock-studio'
   | 'advanced-analytics'
   | 'news-predictions'
+  | 'portfolio'
   | 'watchlist'
+  | 'journal'
   | 'risk-calculator'
   | 'market-clocks'
-  | 'support';
+  | 'support'
+  | 'user-data';
 
 export type MarketRegion = 'NSE_BSE' | 'US_MARKETS' | 'GLOBAL_COMMODITIES' | 'GLOBAL_INDICES';
 
@@ -246,4 +249,70 @@ export interface RiskCalculatorResult {
   isInvertedSetup: boolean;
 }
 
+/** Intraday (MIS): must be squared off same day. Delivery (CNC): held
+ * overnight/positionally. Decided at purchase time, but always changeable
+ * later — a real trader's plan for a position often changes after entry. */
+export type TradeType = 'INTRADAY' | 'DELIVERY';
+
+export interface PurchasedHolding {
+  id: string;
+  symbol: string;
+  stockName: string;
+  purchasePrice: number;
+  quantity: number;
+  purchaseTime: string;
+  purchaseDate?: string;
+  currency: 'INR' | 'USD';
+  sellZone: string;
+  stopLoss: string;
+  probableTimeWindow: string;
+  targetPriceNum?: number;
+  stopLossPriceNum?: number;
+  tradeType: TradeType;
+  source?: 'MANUAL' | 'AUTO';
+}
+
+export interface PriceAlert {
+  id: string;
+  holdingId: string;
+  symbol: string;
+  stockName: string;
+  alertType: 'TARGET_MET' | 'STOP_LOSS_HIT';
+  triggerPrice: number;
+  targetOrSlPrice: number;
+  purchasePrice: number;
+  quantity: number;
+  currency: 'INR' | 'USD';
+  timestamp: string;
+  message: string;
+  isRead?: boolean;
+}
+
+export interface JournalEntry {
+  id: string;
+  holdingId?: string;
+  symbol: string;
+  stockName: string;
+  buyPrice: number;
+  sellPrice: number;
+  quantity: number;
+  pnl: number;
+  pnlPercent: number;
+  boughtAt?: string;
+  boughtDate?: string;
+  soldAt: string;
+  soldDate?: string;
+  dataQualityNote?: string;
+}
+
+export interface CapitalRecord {
+  id: string;
+  amount: number;
+  type: 'DEPOSIT' | 'SET' | 'SALE_CREDIT' | 'PURCHASE_DEBIT' | 'REFUND';
+  timestamp: string;
+  date: string;
+  sortKey: number;
+  resultingCapital: number;
+  note?: string;
+}
 
