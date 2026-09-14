@@ -202,7 +202,10 @@ export const SignalCard: React.FC<SignalCardProps> = ({
 
           {/* Sell Zone (Targets) */}
           <div className="p-3.5 rounded-xl border bg-cyan-950/40 border-cyan-500/40">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center">
+            <div
+              className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center"
+              title="T1 is the first profit-taking level the AI expects; T2 is a further target if momentum continues past T1"
+            >
               <Target className="h-3 w-3 mr-1 text-cyan-400" /> Target Sell Zone
             </div>
             <div className="text-xs font-bold font-mono text-cyan-300">
@@ -212,7 +215,10 @@ export const SignalCard: React.FC<SignalCardProps> = ({
 
           {/* Stop Loss & Risk */}
           <div className="bg-slate-900/90 p-3.5 rounded-xl border border-slate-800">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center">
+            <div
+              className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1 flex items-center"
+              title="The price level at which the setup is considered invalidated — exiting here limits how much the position can lose"
+            >
               <ShieldAlert className="h-3 w-3 mr-1 text-rose-400" /> Stop Loss / Risk Level
             </div>
             <div className="text-xs font-bold font-mono text-rose-300 flex items-center justify-between">
