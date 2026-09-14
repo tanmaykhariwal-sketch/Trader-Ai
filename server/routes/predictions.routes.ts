@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { liveQuotesCache } from '../services/yahooFinance.service';
+import { logger, errorDetail } from '../utils/logger';
 
 export const predictionsRouter = Router();
 
@@ -178,7 +179,7 @@ predictionsRouter.get('/stock-predictions', async (_req, res) => {
       predictions
     });
   } catch (err: any) {
-    console.error('Error in /api/stock-predictions:', err);
+    logger.error({ module: 'predictions.routes', event: 'stock_predictions_failed', error: errorDetail(err) });
     res.status(500).json({ success: false, error: 'Failed to generate stock predictions' });
   }
 });
