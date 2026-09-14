@@ -131,6 +131,9 @@ const NewsPredictionsContent: React.FC<NewsPredictionsViewProps> = ({
           <p className="text-slate-400 text-xs max-w-2xl">
             Real-time news wire parsed for BSE-relevant sentiment, macro transmission, and institutional price target upgrades.
           </p>
+          <p className="text-slate-600 text-[10px]" title="Headlines are pulled from Google News' public RSS feed, not a licensed news wire">
+            Headlines: Google News RSS
+          </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
