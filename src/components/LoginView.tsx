@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { CandlestickChart as LogoIcon, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
+import { CandlestickChart as LogoIcon, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export const LoginView: React.FC = () => {
   const { login, register, error, clearError } = useAuth();
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -15,9 +15,9 @@ export const LoginView: React.FC = () => {
     setIsSubmitting(true);
     try {
       if (mode === 'login') {
-        await login(email, password);
+        await login(username, password);
       } else {
-        await register(email, password, displayName || undefined);
+        await register(username, password, displayName || undefined);
       }
     } catch {
       // error is already surfaced via AuthContext's `error` state
@@ -75,15 +75,16 @@ export const LoginView: React.FC = () => {
             )}
 
             <div>
-              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Email</label>
+              <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Username</label>
               <div className="relative">
-                <Mail className="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                <User className="h-4 w-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
                 <input
-                  type="email"
+                  type="text"
                   required
-                  value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  placeholder="you@example.com"
+                  autoComplete="username"
+                  value={username}
+                  onChange={e => setUsername(e.target.value)}
+                  placeholder="yourusername"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500/60"
                 />
               </div>
