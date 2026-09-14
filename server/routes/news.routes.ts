@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { quoteDirectory } from '../services/yahooFinance.service';
 import { curatedFinancialNews, scoreHeadlineSentiment, fetchGoogleNewsRss, type RawNewsItem } from '../services/googleNewsRss.service';
 import { externalApiRateLimiter } from '../middleware/rateLimiter';
+import { logger, errorDetail } from '../utils/logger';
 
 export const newsRouter = Router();
 
@@ -104,7 +105,7 @@ newsRouter.get('/news-sentiment', externalApiRateLimiter, async (req, res) => {
       news: filtered
     });
   } catch (err: any) {
-    console.error('Error in /api/news-sentiment:', err);
+    logger.error({ module: 'news.routes', event: 'news_sentiment_failed', error: errorDetail(err) });
     res.status(500).json({ success: false, error: 'Failed to fetch news sentiment' });
   }
 });
@@ -165,7 +166,7 @@ newsRouter.get('/global-financial-news', externalApiRateLimiter, async (req, res
       headlines: filtered.slice(0, limit)
     });
   } catch (err: any) {
-    console.error('Error in /api/global-financial-news:', err);
+    logger.error({ module: 'news.routes', event: 'global_financial_news_failed', error: errorDetail(err) });
     res.status(500).json({ success: false, error: 'Failed to aggregate global news' });
   }
 });
