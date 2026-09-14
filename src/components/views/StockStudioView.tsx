@@ -21,6 +21,7 @@ interface StockStudioViewProps {
   isLoading: boolean;
   audioEnabled: boolean;
   onOpenCalculatorForSignal: (signal: MarketSignal) => void;
+  onMarkAsBought?: (signal: MarketSignal) => void;
   currency: 'INR' | 'USD';
   tradingMode?: TradingMode;
   onToggleTradingMode?: () => void;
@@ -38,6 +39,7 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
   isLoading,
   audioEnabled,
   onOpenCalculatorForSignal,
+  onMarkAsBought,
   currency,
   tradingMode = 'simple',
   onSelectPage,
@@ -320,6 +322,7 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
             onOpenCalculatorForSignal={onOpenCalculatorForSignal}
             audioEnabled={audioEnabled}
             onViewFullAnalysis={() => onSelectPage?.('advanced-analytics')}
+            onMarkAsBought={onMarkAsBought}
           />
 
           {/* Quick Transition to News & Upgrades Page */}
