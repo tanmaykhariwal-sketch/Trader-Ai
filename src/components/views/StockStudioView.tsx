@@ -10,6 +10,7 @@ import {
 import { MarketTicker, MarketSignal, TradingMode, AppPage, CandlestickPatternDetection, StockPrediction } from '../../types';
 import { CandlestickChart } from '../CandlestickChart';
 import { SignalCard } from '../SignalCard';
+import { isIndexSymbol } from '../../utils/indexSymbols';
 
 interface StockStudioViewProps {
   currentSignal: MarketSignal | null;
@@ -50,6 +51,7 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
   const [isScanningPatterns, setIsScanningPatterns] = useState<boolean>(false);
 
   const isAdvanced = tradingMode === 'advanced';
+  const isIndex = isIndexSymbol(selectedTicker.symbol);
 
   // Run Candlestick Pattern Detection Scanner when chart data or timeframe changes
   useEffect(() => {
@@ -224,8 +226,9 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
 
           <button
             onClick={handleGenerate}
-            disabled={isLoading}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-emerald-500/20 flex items-center space-x-1.5 cursor-pointer disabled:opacity-50"
+            disabled={isLoading || isIndex}
+            title={isIndex ? 'Indices and index-tracking ETFs are not individually tradable — no signal is generated for them' : undefined}
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-black text-xs transition-all shadow-lg shadow-emerald-500/20 flex items-center space-x-1.5 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
             <span>{isLoading ? 'Scanning Confluences...' : `Re-Analyze ${selectedTicker.symbol}`}</span>
@@ -233,8 +236,29 @@ export const StockStudioView: React.FC<StockStudioViewProps> = ({
         </div>
       </div>
 
+      {/* Index / ETF proxy: informational only, no tradable signal */}
+      {isIndex && !currentSignal && (
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-6 text-center space-y-2">
+          <p className="text-sm font-bold text-slate-200">{selectedTicker.name} is a market index, not an individual stock</p>
+          <p className="text-xs text-slate-400 max-w-md mx-auto">
+            No buy zone, target, or stop-loss is generated for indices or index-tracking ETFs — they aren't directly tradable the way a single company's shares are. Price and change are still shown live on the ticker tape above.
+          </p>
+        </div>
+      )}
+
+      {/* Loading transition — shown instead of a stale chart while a signal
+          for a DIFFERENT symbol than the one just selected is still
+          in-flight, so the header/chip never shows one stock while the
+          chart underneath is still displaying another. */}
+      {isLoading && currentSignal?.symbol !== selectedTicker.symbol && !isIndex && (
+        <div className="bg-slate-900/90 border border-slate-800 rounded-2xl p-10 text-center space-y-3">
+          <RefreshCw className="h-6 w-6 text-cyan-400 animate-spin mx-auto" />
+          <p className="text-sm text-slate-300">Generating a fresh signal for {selectedTicker.symbol}...</p>
+        </div>
+      )}
+
       {/* Candlestick Chart */}
-      {currentSignal && (() => {
+      {currentSignal && currentSignal.symbol === selectedTicker.symbol && (() => {
         const matchingPrediction = predictions.find(p => p.symbol === currentSignal.symbol) || null;
         return (
           <div className="space-y-6">
