@@ -7,6 +7,7 @@ import {
 import { MarketSignal, MarketTicker } from '../../types';
 import { calculatePositionSize } from '../../utils/positionSizing';
 import { DecimalInput } from '../DecimalInput';
+import { isIndexSymbol } from '../../utils/indexSymbols';
 
 // Matches the multipliers this app has used elsewhere for a fallback
 // stop-loss/target when a signal's own text can't be parsed for a number.
@@ -32,20 +33,35 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
   // unrelated hardcoded placeholder numbers (1315.60/1295/1350) instead of
   // that stock's real values.
   const deriveLevelsFromSignal = (sig: MarketSignal) => {
+    const entry = sig.currentPrice;
     const slMatch = sig.stopLoss.match(/[\d,]+(\.\d+)?/);
-    const stopLoss = slMatch
+    let stopLoss = slMatch
       ? parseFloat(slMatch[0].replace(/,/g, ''))
-      : +(sig.currentPrice * FALLBACK_STOP_LOSS_MULTIPLIER).toFixed(2);
+      : +(entry * FALLBACK_STOP_LOSS_MULTIPLIER).toFixed(2);
 
     const t1Match = sig.sellZone.match(/T1:\s*₹?([\d,]+(\.\d+)?)/);
-    const target = t1Match
+    let target = t1Match
       ? parseFloat(t1Match[1].replace(/,/g, ''))
-      : +(sig.currentPrice * FALLBACK_TARGET_MULTIPLIER).toFixed(2);
+      : +(entry * FALLBACK_TARGET_MULTIPLIER).toFixed(2);
 
-    return { entry: sig.currentPrice, stopLoss, target };
+    // A signal's stopLoss/sellZone text is computed once at generation time,
+    // but `currentPrice` keeps live-updating on every quote tick — if the
+    // real price has since moved past the frozen stop-loss or target, the
+    // parsed values describe a structurally invalid trade (SL above entry,
+    // or target below entry) despite each number being "real" on its own.
+    // Falling back to the safe multiplier keeps the initial/selected state
+    // from ever seeding an already-broken setup.
+    if (stopLoss >= entry) stopLoss = +(entry * FALLBACK_STOP_LOSS_MULTIPLIER).toFixed(2);
+    if (target <= entry) target = +(entry * FALLBACK_TARGET_MULTIPLIER).toFixed(2);
+
+    return { entry, stopLoss, target };
   };
 
-  const initialSignal = signals[0];
+  // Position sizing is only meaningful for individually tradable equities —
+  // an index/ETF proxy like SENSEX has no "buy N shares" interpretation.
+  const tradableSignals = signals.filter(s => !isIndexSymbol(s.symbol));
+
+  const initialSignal = tradableSignals[0];
   const initialLevels = initialSignal ? deriveLevelsFromSignal(initialSignal) : null;
 
   const [selectedStock, setSelectedStock] = useState<string>(initialSignal?.symbol || 'RELIANCE');
@@ -60,7 +76,7 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
   // Update inputs when selecting a different stock
   const handleSelectSignal = (sym: string) => {
     setSelectedStock(sym);
-    const sig = signals.find(s => s.symbol === sym);
+    const sig = tradableSignals.find(s => s.symbol === sym);
     if (sig) {
       const levels = deriveLevelsFromSignal(sig);
       setEntryPrice(levels.entry);
@@ -133,7 +149,7 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
               Select BSE Asset / Signal Setup
             </label>
             <div className="grid grid-cols-3 gap-1.5">
-              {signals.slice(0, 6).map(s => (
+              {tradableSignals.slice(0, 6).map(s => (
                 <button
                   key={s.symbol}
                   type="button"
@@ -270,14 +286,16 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
                 </div>
               </div>
 
-              {/* Potential Profit */}
+              {/* Potential Profit — a real number here next to an "Invalid
+                  Setup" banner reads as if the trade were valid anyway, so
+                  it's withheld instead of shown alongside the warning. */}
               <div className="bg-emerald-950/20 border border-emerald-500/30 p-3.5 rounded-xl">
                 <div className="text-[11px] font-bold text-emerald-300 uppercase font-mono">Potential Profit</div>
                 <div className="font-mono text-lg font-black text-emerald-400 mt-0.5">
-                  +{currSymbol}{totalPotentialProfit.toFixed(2)}
+                  {isInvertedSetup ? '—' : `+${currSymbol}${totalPotentialProfit.toFixed(2)}`}
                 </div>
                 <div className="text-[10px] text-slate-400 mt-0.5">
-                  At target {currSymbol}{targetPrice}
+                  {isInvertedSetup ? 'Fix setup to calculate' : `At target ${currSymbol}${targetPrice}`}
                 </div>
               </div>
 
@@ -285,10 +303,10 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
               <div className="bg-cyan-950/20 border border-cyan-500/30 p-3.5 rounded-xl">
                 <div className="text-[11px] font-bold text-cyan-300 uppercase font-mono">Risk : Reward</div>
                 <div className="font-mono text-lg font-black text-cyan-400 mt-0.5">
-                  1 : {riskRewardRatio}
+                  {isInvertedSetup ? '—' : `1 : ${riskRewardRatio}`}
                 </div>
                 <div className="text-[10px] text-slate-400 mt-0.5">
-                  {parseFloat(riskRewardRatio) >= 2.0 ? '🔥 High Quality Ratio' : 'Acceptable Ratio'}
+                  {isInvertedSetup ? 'Fix setup to calculate' : (parseFloat(riskRewardRatio) >= 2.0 ? 'High Quality Ratio' : 'Acceptable Ratio')}
                 </div>
               </div>
             </div>
