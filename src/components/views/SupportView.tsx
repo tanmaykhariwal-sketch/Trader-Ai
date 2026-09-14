@@ -344,7 +344,7 @@ export const SupportView: React.FC<SupportViewProps> = ({ onSelectPage }) => {
             </div>
             <div className="space-y-1">
               <div className="flex items-center space-x-2.5">
-                <h1 className="text-2xl font-black text-white tracking-tight">
+                <h1 className="text-lg sm:text-xl font-black text-white tracking-tight">
                   Support & Direct Help
                 </h1>
                 <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center space-x-1">
