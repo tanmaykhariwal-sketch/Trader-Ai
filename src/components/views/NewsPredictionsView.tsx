@@ -124,7 +124,7 @@ const NewsPredictionsContent: React.FC<NewsPredictionsViewProps> = ({
       {/* Page Header: title, sync status, refresh — kept slim so it reads as a status bar, not a hero */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="space-y-1">
-          <h1 className="text-xl sm:text-2xl font-extrabold text-white tracking-tight flex items-center gap-2.5">
+          <h1 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2.5">
             <Globe className="w-5 h-5 text-emerald-400" />
             <span>Daily Global Headlines & BSE Sentiment Engine</span>
           </h1>
@@ -218,7 +218,7 @@ const NewsPredictionsContent: React.FC<NewsPredictionsViewProps> = ({
             </div>
 
             {/* Filter Pills */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs scroll-fade-x">
               <button
                 onClick={() => setSelectedPredFilter('ALL')}
                 className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
@@ -608,7 +608,7 @@ const NewsPredictionsContent: React.FC<NewsPredictionsViewProps> = ({
                   <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     Category
                   </div>
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs custom-scrollbar">
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-xs custom-scrollbar scroll-fade-x">
                     {categories.map(cat => {
                       const isActive = activeCategory === cat.id;
                       return (
