@@ -204,7 +204,10 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
 
           {/* Stop Loss Price */}
           <div>
-            <label className="text-xs font-semibold text-rose-400 block mb-1">
+            <label
+              className="text-xs font-semibold text-rose-400 block mb-1"
+              title="The price at which you'd exit to cap a loss — below entry for a long position"
+            >
               Protective Stop Loss Price ({currSymbol})
             </label>
             <DecimalInput
@@ -219,7 +222,10 @@ export const RiskCalculatorView: React.FC<RiskCalculatorViewProps> = ({
 
           {/* Target Price */}
           <div>
-            <label className="text-xs font-semibold text-emerald-400 block mb-1">
+            <label
+              className="text-xs font-semibold text-emerald-400 block mb-1"
+              title="The price at which you'd take profit — above entry for a long position"
+            >
               Advisable Target Sell Price ({currSymbol})
             </label>
             <DecimalInput
