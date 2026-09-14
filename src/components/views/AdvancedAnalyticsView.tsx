@@ -138,9 +138,9 @@ export const AdvancedAnalyticsView: React.FC<AdvancedAnalyticsViewProps> = ({
             </div>
 
             <div className="bg-slate-900 border border-slate-800 p-4 rounded-xl space-y-1">
-              <span className="text-slate-400 font-mono text-[10px] uppercase">Setup Quality Score</span>
+              <span className="text-slate-400 font-mono text-[10px] uppercase">AI Confidence</span>
               <div className="text-lg font-black text-purple-400 font-mono">
-                {activeSignal.confidenceScore}% Confluence
+                {activeSignal.confidenceScore}%
               </div>
               <div className="text-[11px] text-slate-400 font-medium">{activeSignal.signalType}</div>
             </div>
