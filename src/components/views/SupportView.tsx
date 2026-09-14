@@ -245,16 +245,16 @@ export const SupportView: React.FC<SupportViewProps> = ({ onSelectPage }) => {
     },
     {
       id: 2,
-      question: 'Why are Target Selling Zones (T1 & T2) unlocked only after marking a stock as bought?',
+      question: 'What do the Target Selling Zones (T1 & T2) actually mean?',
       category: 'Trade Discipline',
       icon: Target,
       answer: (
         <div className="space-y-2 text-xs text-slate-300 leading-relaxed">
           <p>
-            To prevent premature exits, front-running, and undisciplined execution, Target 1 (T1) and Target 2 (T2) profit exit zones are unlocked once you click <strong className="text-emerald-400">"I Bought This Stock"</strong>.
+            Target 1 (T1) and Target 2 (T2) are the AI's suggested profit-taking zones for a signal, shown alongside the buy zone and stop loss on every signal card — always visible, with nothing to unlock.
           </p>
           <p className="text-slate-400">
-            Once marked as bought, the system continuously monitors live BSE ticks, calculates unrealized P&L in real-time, and fires automatic alerts the exact moment price touches your target profit zone or stop loss.
+            Trader AI is analysis-only: it doesn't place trades or track a live position for you, so these targets are a reference for your own decision-making, not an automated alert or P&L tracker.
           </p>
         </div>
       )
