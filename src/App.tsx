@@ -21,6 +21,7 @@ import { MiniAssistant } from './components/MiniAssistant';
 import { INITIAL_TICKERS, INITIAL_SAMPLE_SIGNALS, generateCandlesticks } from './data/marketData';
 import { MarketTicker, MarketSignal, AppPage, TradingMode, StockPrediction, CandlestickData } from './types';
 import { getBseMarketStatus, BseMarketStatus } from './utils/marketHours';
+import { isIndexSymbol } from './utils/indexSymbols';
 import { useAuth } from './context/AuthContext';
 import { LoginView } from './components/LoginView';
 import {
@@ -236,11 +237,25 @@ export default function App() {
   // Defined with useCallback (not just inside the effect) so the sidebar's
   // manual refresh button can invoke the exact same rates-only sync the
   // background poller uses — no other page data is touched.
+  // Background poll failures were previously silent — a stalled feed just
+  // kept showing whatever prices were last fetched, with no indication
+  // anything was wrong (the refreshRatesError state below only ever got set
+  // from a manual click). Tracked as a ref so fetchLiveServerQuotes' own
+  // identity stays stable (empty dep array) — only 2+ *consecutive* failures
+  // surface a warning, so one transient blip doesn't flash an error for a
+  // background poll nobody explicitly asked about.
+  const consecutiveQuoteFailuresRef = useRef(0);
   const fetchLiveServerQuotes = useCallback(async (): Promise<boolean> => {
       const mySeq = ++quotesFetchSeq.current;
       try {
         const res = await fetch('/api/live-quotes');
-        if (!res.ok) return false;
+        if (!res.ok) {
+          consecutiveQuoteFailuresRef.current += 1;
+          if (consecutiveQuoteFailuresRef.current >= 2) {
+            setRefreshRatesError('Live price feed is unreachable — showing the last prices received.');
+          }
+          return false;
+        }
         const data = await res.json();
 
         // A newer call (interval tick or manual refresh) started while this
@@ -249,6 +264,8 @@ export default function App() {
         if (mySeq !== quotesFetchSeq.current) return false;
 
         if (data.success && Array.isArray(data.quotes)) {
+          consecutiveQuoteFailuresRef.current = 0;
+          setRefreshRatesError(null);
           const currentBse = getBseMarketStatus();
           setMarketStatus(currentBse);
 
@@ -335,9 +352,17 @@ export default function App() {
 
           return true;
         }
+        consecutiveQuoteFailuresRef.current += 1;
+        if (consecutiveQuoteFailuresRef.current >= 2) {
+          setRefreshRatesError('Live price feed returned an unexpected response — showing the last prices received.');
+        }
         return false;
       } catch (err) {
         console.warn('Quote feed synchronization error:', err);
+        consecutiveQuoteFailuresRef.current += 1;
+        if (consecutiveQuoteFailuresRef.current >= 2) {
+          setRefreshRatesError('Live price feed is unreachable — showing the last prices received.');
+        }
         return false;
       }
   }, []); // stable forever — no external state closed over
@@ -407,6 +432,15 @@ export default function App() {
 
   const handleSelectTickerFromTape = (ticker: MarketTicker) => {
     setSelectedTicker(ticker);
+    // An index or index-tracking ETF (SENSEX, SENSEXADD) isn't a tradable
+    // equity — generating a buy-zone/stop-loss signal for it produces
+    // nonsensical output like "buy 1 share of the index". Stock Studio
+    // shows a plain informational state for these instead.
+    if (isIndexSymbol(ticker.symbol)) {
+      setCurrentSignal(null);
+      setActivePage('stock-studio');
+      return;
+    }
     const existingSignal = savedSignals.find(s => s.symbol === ticker.symbol);
     if (existingSignal) {
       setCurrentSignal(existingSignal);
@@ -510,6 +544,13 @@ export default function App() {
 
   // Generate Single AI Signal via API
   const handleGenerateSignal = async (params: { ticker: MarketTicker; timeframe: string; riskProfile: string; strategy: string }) => {
+    // Defense in depth alongside the Re-Analyze button being disabled for
+    // indices in StockStudioView — an index/ETF proxy has no buy-zone/
+    // stop-loss signal to generate.
+    if (isIndexSymbol(params.ticker.symbol)) {
+      setCurrentSignal(null);
+      return;
+    }
     setIsLoading(true);
     const mySeq = ++signalRequestSeq.current;
 
@@ -773,7 +814,13 @@ export default function App() {
       <div 
         ref={mainScrollContainerRef}
         id="main-scroll-viewport"
-        className="flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto overscroll-contain pb-8"
+        // Extra bottom clearance on mobile: the floating MiniAssistant button
+        // sits fixed at bottom-5 right-4 (~70px footprint including its own
+        // offset) and was covering the last row of content on several pages
+        // (Market Hours holiday list, Support FAQ, signal-card stop-loss
+        // text) when scrolled to the bottom. Not needed at sm+ widths, where
+        // page content is wider and less likely to reach that corner.
+        className="flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto overscroll-contain pb-24 sm:pb-8"
       >
         
         {/* Top Ticker Bar & Market Breadcrumb */}
